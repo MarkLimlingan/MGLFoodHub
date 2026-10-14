@@ -1,9 +1,29 @@
 import { useState, type ReactNode } from 'react'
-import { AlertTriangle, Info, Utensils, ZoomIn, ZoomOut } from 'lucide-react'
+import { AlertTriangle, Info, MessageCircle, Utensils, ZoomIn, ZoomOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Dialog, DialogContent, DialogTitle } from './ui/dialog'
 import { Badge } from './ui/badge'
+import { Button } from './ui/button'
 import type { Tone } from '@/lib/orderStatus'
+
+/** The owner's Facebook page, where customers send questions about their order. */
+export const OWNER_MESSAGE_URL = 'https://www.facebook.com/share/1Z173bDyLJ/'
+
+export function MessageOwner({ className }: { className?: string }) {
+  return (
+    <div className={cn('flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-navy-50 p-4 ring-1 ring-navy/10', className)}>
+      <div className="min-w-0">
+        <p className="font-heading text-sm font-semibold text-navy">Questions about your order?</p>
+        <p className="text-sm text-navy/65">Send the owner a message on Facebook.</p>
+      </div>
+      <Button asChild variant="navy" size="sm">
+        <a href={OWNER_MESSAGE_URL} target="_blank" rel="noopener noreferrer">
+          <MessageCircle /> Message the owner
+        </a>
+      </Button>
+    </div>
+  )
+}
 
 export const DELIVERY_DISCLAIMER =
   'Menu prices are VAT inclusive and may vary or be subject to change by the merchant. Higher delivery fees may also apply for long distance deliveries. For long distance deliveries, please be reminded that the quality of some food items may not be the same as in store quality.'

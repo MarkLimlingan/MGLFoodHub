@@ -4,7 +4,10 @@ import { BrowserRouter } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import App from './App'
 import { CatalogProvider } from './hooks/useCatalog'
+import { registerServiceWorker } from './lib/install'
 import './index.css'
+
+registerServiceWorker()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

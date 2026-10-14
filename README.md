@@ -44,6 +44,7 @@ Admin login: `https://your-domain/<VITE_ADMIN_PATH>`. After sign-in you land on 
 | --- | --- |
 | `public/logo.png` | Navbar, footer, admin login, Apple touch icon. A vector stand-in is shown until this file exists. |
 | `public/menus/<slug>.jpg` | Each store's cover and "View original menu" photo |
+| `public/products/*.jpg` | Product photos (16:10), linked with `; !/products/<file>.jpg` in `scripts/menu-data.mjs`. Re-running the setup fills a product's photo only if the admin hasn't uploaded one. |
 
 Store slugs: `hazels-special-puto`, `aling-melys-carinderia`, `okoy-ni-jay-r`, `aurings-special-pancit-malabon`, `normas-special-pancit-bilao`, `balsa-sa-niugan`, `original-benjie-puto-pao`, `raves-diner`, `mary-jay`, `rody-days`, `anny-dading-peachy-peachy`, `judy-anns-crispy-pata`, `sisig-ni-mutik`.
 
@@ -73,12 +74,14 @@ Then turn on **Email confirmations** in Admin → Settings. The function only em
 
 Any static host works. `npm run build` outputs `dist/`. SPA rewrites are included for Vercel (`vercel.json`) and Netlify (`public/_redirects`).
 
+**Install as an app.** The site is installable on Android, iPhone and desktop (`public/manifest.webmanifest`, `public/sw.js`). The service worker only serves `public/offline.html` when a page can't load; it caches nothing else, so every deploy is live immediately. Android shows Chrome's install popup from the **Install** button; iPhone and Facebook's in-app browser get step-by-step instructions.
+
 ---
 
 ## How it works
 
 - **Carts are per device.** A random `device_id` and the cart live only in `localStorage` (`mgl_cart_v1`). Nothing is shared server-side, so two phones can never merge carts. The cart clears only after an order succeeds. Sold-out or unavailable items are flagged and block checkout.
-- **Scheduling.** The earliest date is tomorrow (Asia/Manila), or the day after once the cutoff passes. Blocked dates and max days are enforced in the date picker and again on the server. Slots are 1-hour windows inside the overlap of every cart store's hours. If the stores don't overlap, checkout is blocked with a message naming the stores.
+- **Scheduling.** The earliest date is tomorrow (Asia/Manila), or the day after once the cutoff passes. Blocked dates and max days are enforced in the date picker and again on the server. Every store currently delivers 12:00 PM to 8:00 PM (set per store in `scripts/menu-data.mjs`). Slots are 1-hour windows inside the overlap of every cart store's hours. If the stores don't overlap, checkout is blocked with a message naming the stores.
 - **Orders.** `place_order` re-validates everything: prices, sold-out, store availability, date, slot, phone and email format, the honeypot, and 5 orders per phone per day. It then returns `MGL-YYMMDD-XXXX` plus a 32-character random tracking token.
 - **Tracking.** `/track/<token>` reads one order via `get_order_by_token` (customer-safe fields only). Anon users have no table access to orders at all. Every change pings a Realtime broadcast channel named after the token, and the page re-fetches, so status updates appear live.
 - **Admin.** Every status change goes through `admin_order_action`, which validates the transition, writes `order_status_history` with the admin's email, and pushes the update to the customer.

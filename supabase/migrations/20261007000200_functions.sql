@@ -188,7 +188,6 @@ declare
   v_name text := left(btrim(coalesce(payload->>'customer_name', '')), 120);
   v_phone text := public.normalize_ph_phone(payload->>'phone');
   v_email text := left(lower(btrim(coalesce(payload->>'email', ''))), 200);
-  v_social text := left(btrim(coalesce(payload->>'social_media', '')), 300);
   v_address text := left(btrim(coalesce(payload->>'address', '')), 300);
   v_barangay text := left(btrim(coalesce(payload->>'barangay', '')), 120);
   v_city text := left(btrim(coalesce(payload->>'city', '')), 120);
@@ -248,9 +247,6 @@ begin
   end if;
   if v_email !~ '^[^\s@]+@[^\s@]+\.[^\s@]{2,}$' then
     raise exception 'Please enter a valid email address.';
-  end if;
-  if length(v_social) < 2 then
-    raise exception 'Please enter your Facebook or Instagram profile link or username.';
   end if;
   if length(v_address) < 4 or length(v_barangay) < 2 or length(v_city) < 2 then
     raise exception 'Please complete your delivery address (house/unit and street, barangay, city).';
@@ -452,12 +448,12 @@ begin
   end loop;
 
   insert into public.orders (
-    id, order_number, tracking_token, device_id, customer_name, phone, email, social_media,
+    id, order_number, tracking_token, device_id, customer_name, phone, email,
     address, barangay, city, landmark, delivery_date, delivery_slot, payment_method,
     payment_status, order_status, gcash_reference, gcash_proof_path, subtotal, delivery_fee,
     total, customer_notes
   ) values (
-    v_order_id, v_order_number, v_token, v_device, v_name, v_phone, v_email, v_social,
+    v_order_id, v_order_number, v_token, v_device, v_name, v_phone, v_email,
     v_address, v_barangay, v_city, v_landmark, v_date, v_slot, v_method_text::public.payment_method,
     case when v_method_text = 'cod' then 'cod_unpaid' else 'pending_verification' end::public.payment_status,
     'processing', v_ref, v_proof, v_subtotal, 0, v_subtotal, v_notes

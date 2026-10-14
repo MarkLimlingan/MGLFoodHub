@@ -56,12 +56,14 @@ export function parseMenu() {
         variants: parseVariants(head.slice(eq + 3).trim(), `${store.slug}/${line}`),
         badge: null,
         description: null,
+        image: null,
         groups: [],
       }
       for (const mod of mods) {
         const m = mod.trim()
         if (m.startsWith('#')) product.badge = m.slice(1)
         else if (m.startsWith('~')) product.description = m.slice(1).trim()
+        else if (m.startsWith('!')) product.image = m.slice(1).trim()
         else if (m.startsWith('@')) {
           const idx = m.indexOf(':')
           product.groups.push({
@@ -127,7 +129,7 @@ export function buildSeed(stores) {
         const pKey = `${secKey}:${pi}`
         const pId = uid(`product:${pKey}`)
         rows.products.push(
-          `  (${q(pId)}, ${q(storeId)}, ${q(secId)}, ${q(p.name)}, ${q(p.description)}, ${q(p.badge)}, ${pi + 1})`,
+          `  (${q(pId)}, ${q(storeId)}, ${q(secId)}, ${q(p.name)}, ${q(p.description)}, ${q(p.badge)}, ${q(p.image)}, ${pi + 1})`,
         )
         p.variants.forEach((v, vi) => {
           rows.variants.push(
@@ -154,11 +156,17 @@ export function buildSeed(stores) {
     'stores',
     'id, slug, name, tagline, hub_category_id, open_time, close_time, address, contact_note, cover_image_url, menu_image_url, is_accepting_orders, sort',
     rows.stores,
-    // Re-running the setup applies the display order and taglines to an existing database.
-    'do update set sort = excluded.sort, tagline = excluded.tagline',
+    // Re-running the setup applies the display order, taglines and hours to an existing database.
+    'do update set sort = excluded.sort, tagline = excluded.tagline, open_time = excluded.open_time, close_time = excluded.close_time',
   )
   block('menu_sections', 'id, store_id, name, note, sort', rows.sections)
-  block('products', 'id, store_id, section_id, name, description, badge, sort', rows.products, 'do update set name = excluded.name')
+  block(
+    'products',
+    'id, store_id, section_id, name, description, badge, image_url, sort',
+    rows.products,
+    // Fills in the menu photo only where the admin hasn't uploaded one.
+    'do update set name = excluded.name, image_url = coalesce(products.image_url, excluded.image_url)',
+  )
   block('product_variants', 'id, product_id, label, price, addon_price, sort', rows.variants)
   block('option_groups', 'id, product_id, name, is_required', rows.groups)
   block('option_choices', 'id, group_id, label, price_delta, sort', rows.choices)

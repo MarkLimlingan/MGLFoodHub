@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from './ui/dial
 
 /** Shown until the admin's version loads (and if it can't load). Admins edit these in Settings. */
 export const DEFAULT_GUIDELINES = [
-  'We deliver via Grab within Metro Manila from 12:00 PM to 6:00 PM.',
+  'We deliver via Grab within Metro Manila from 12:00 PM to 8:00 PM.',
   'Pay by Cash on Delivery (COD) or online via GCash, MariBank or GoTyme.',
   'Orders are for booking (scheduled delivery) only. Same day delivery is not available.',
   'We will confirm your order by text or call.',

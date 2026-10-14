@@ -7,7 +7,7 @@
 //   STORE slug | Store Name | hub-category-slug | HH:MM-HH:MM
 //   tagline: …   address: …   note: …         (optional store fields)
 //   ## Section Name                            (optional ":: section note")
-//   Product = <variants> [; @Group: A / B] [; #badge] [; ~description]
+//   Product = <variants> [; @Group: A / B] [; #badge] [; ~description] [; !/products/photo.jpg]
 //   <variants> = "180"  (single price → variant "Regular")
 //              | "Label 348 | Label 417.60"  (last number of each part = price)
 //              | "Label 144 +24"             (+N = addon_price, e.g. extra toppings)
@@ -24,16 +24,16 @@ export const categories = [
 ]
 
 export const menu = String.raw`
-STORE hazels-special-puto | Hazel's Special Puto | puto-kakanin | 07:00-12:00
+STORE hazels-special-puto | Hazel's Special Puto | puto-kakanin | 12:00-20:00
 tagline: Freshly Steamed & Delicious!
 ## Mix
-Mix = 10pcs 348.00 | 12pcs 417.60 | 20pcs 696.00 | 30pcs 1044.00
+Mix = 10pcs 348.00 | 12pcs 417.60 | 20pcs 696.00 | 30pcs 1044.00 ; !/products/hazels-mix.jpg
 ## Puto Pao
-Puto Pao = 10pcs 360.00 | 12pcs 432.00 | 15pcs 540.00 | 20pcs 720.00 | 25pcs 900.00 | 30pcs 1080.00 | 50pcs 1800.00
+Puto Pao = 10pcs 360.00 | 12pcs 432.00 | 15pcs 540.00 | 20pcs 720.00 | 25pcs 900.00 | 30pcs 1080.00 | 50pcs 1800.00 ; !/products/hazels-puto-pao.jpg
 ## Puto
-Puto = 10pcs 336.00 | 12pcs 403.20 | 15pcs 504.00 | 20pcs 696.00 | 25pcs 840.00 | 30pcs 1008.00 | 50pcs 1680.00
+Puto = 10pcs 336.00 | 12pcs 403.20 | 15pcs 504.00 | 20pcs 696.00 | 25pcs 840.00 | 30pcs 1008.00 | 50pcs 1680.00 ; !/products/hazels-puto.jpg
 
-STORE aling-melys-carinderia | Aling Mely's Carinderia | carinderia | 09:00-21:00
+STORE aling-melys-carinderia | Aling Mely's Carinderia | carinderia | 12:00-20:00
 ## Ulam
 Bangus sa Bayabas = Regular 156 | Large 168
 Sarsiado Isda = Regular 144 | Large 168
@@ -62,17 +62,17 @@ Menudo = 180
 Tinumis = 132
 Kare Kare = 192
 
-STORE okoy-ni-jay-r | Okoy ni Jay R! | merienda-street-food | 07:30-20:00
+STORE okoy-ni-jay-r | Okoy ni Jay R! | merienda-street-food | 12:00-20:00
 tagline: Crispy on the outside, Loaded with Sarap inside! Made with love para sa'yo!
 note: For orders, message Jay R-D Original Okoy
 ## Okoy
-Regular Okoy = 72 ; ~Mejo manipis at bilang lang ang hipon.
+Regular Okoy = 72 ; ~Mejo manipis at bilang lang ang hipon. ; !/products/okoy-ni-jay-r-regular-okoy.jpg
 Regular Okoy w/ Tofu = 84 ; ~Togue't kalabasa, hipon at may add na tofu.
 Veggies Okoy = 72 ; ~All veggies, togue't kalabasa, pwede din lagyan ng tofu.
 Special Okoy = 120 ; #best_seller ; ~Dinoble, dinoble ang gulay esp. kalabasa at maraming hipon.
 Super Special Okoy = 144 ; #best_seller ; ~Dinobleng togue't kalabasa, generous sa hipon at may added na tofu at onion rings!
 
-STORE aurings-special-pancit-malabon | Auring's Special Pancit Malabon | pancit-bilao | 09:00-17:00
+STORE aurings-special-pancit-malabon | Auring's Special Pancit Malabon | pancit-bilao | 12:00-20:00
 ## Bilao
 Pancit Malabon Bilao = For 4 persons 528.00 | For 5-6 persons 792.00 | For 8 persons 1056.00 | For 10 persons 1320.00 | For 12 persons 1560.00 | For 14 persons 1800.00 | For 16 persons 2100.00 | For 18 persons 2340.00 | For 20 persons 2580.00 | For 25 persons 3180.00 | For 30 persons 3600.00
 ## Styro
@@ -80,11 +80,11 @@ Pancit Malabon Styro = Small 180.00 | Medium 264.00 | Large 348.00
 ## Puto
 Puto = 1 piece 33.60 | 1 box (10pcs) 336.00
 
-STORE normas-special-pancit-bilao | Norma's Special Pancit Bilao | pancit-bilao | 09:00-18:00
+STORE normas-special-pancit-bilao | Norma's Special Pancit Bilao | pancit-bilao | 12:00-20:00
 ## Pancit Bilao
 Pancit Bilao = Size 8 (2-3 persons) 540 | Size 9 (3-4 persons) 660 | Size 10 (4-5 persons) 840 | Size 11 (5-6 persons) 960 | Size 12 (6-8 persons) 1080 | Size 13 (8-10 persons) 1200 | Size 14 (10-12 persons) 1440 | Size 15 (12-14 persons) 1680 | Size 16 (14-17 persons) 1920 | Size 17 (17-20 persons) 2160
 
-STORE balsa-sa-niugan | Balsa sa Niugan | restaurants | 10:00-22:00
+STORE balsa-sa-niugan | Balsa sa Niugan | restaurants | 12:00-20:00
 tagline: Floating Restaurant & Fishing Garden
 address: #3 M. Aquino Street, Niugan, Malabon City
 ## Tilapia
@@ -203,7 +203,7 @@ Fruit Salad Tub = 180
 Leche Flan Royale Tub = 180
 Halo-Halo = 144
 
-STORE original-benjie-puto-pao | Original Benjie Puto Pao | puto-kakanin | 08:00-19:00
+STORE original-benjie-puto-pao | Original Benjie Puto Pao | puto-kakanin | 12:00-20:00
 note: Prices are per piece
 ## Puto Pao :: Prices are per piece
 Puto Pao = 33.60
@@ -212,7 +212,7 @@ Flavored Puto Pao = 36.00 ; @Flavor: Yema / Ube / Macapuno / Mocha
 ## Puto :: Prices are per piece
 Puto = 28.80 ; @Type: Puto Keso / Puto Salted Egg / Plain
 
-STORE raves-diner | Raves Diner | diner | 11:00-23:00
+STORE raves-diner | Raves Diner | diner | 12:00-20:00
 ## Meals
 Beef Belly = 251
 Pork Belly = 251
@@ -276,7 +276,7 @@ Softdrink 290ml = 34 ; @Flavor: Coke / Royal / Sprite / Mountain Dew
 Del Monte Juice (in can) = 66
 Bottled Water = 30
 
-STORE mary-jay | Mary Jay | restaurants | 10:00-22:00
+STORE mary-jay | Mary Jay | restaurants | 12:00-20:00
 tagline: Since 1966
 ## Single Serving
 Grilled Chicken w/ Sauce = 306
@@ -419,7 +419,7 @@ Alfonso Light = 780
 Fundador Light = 960
 Black Label = 1800
 
-STORE rody-days | Rody Day's | restaurants | 10:00-21:00
+STORE rody-days | Rody Day's | restaurants | 12:00-20:00
 tagline: Good Food, Great Moments
 ## Fried
 Crispy Pata = 1140
@@ -456,16 +456,16 @@ Bihon = 4-5 persons 756 | 6-7 persons 1056 | 8-9 persons 1404 | 10-12 persons 16
 Miki Bihon = 4-5 persons 756 | 6-7 persons 1056 | 8-9 persons 1404 | 10-12 persons 1656
 Canton = 4-5 persons 924 | 6-7 persons 1176 | 8-9 persons 1512 | 10-12 persons 1728
 
-STORE anny-dading-peachy-peachy | Anny ♥ Dading Peachy-Peachy | puto-kakanin | 06:00-20:00
+STORE anny-dading-peachy-peachy | Anny ♥ Dading Peachy-Peachy | puto-kakanin | 12:00-20:00
 tagline: Pighta • Sarap • Pamilya
 note: Pricelist effective April 2, 2026
 ## Peachy-Peachy Boxes :: Tick "Add Extra Toppings" for more cheese or coconut.
 Peachy-Peachy = Small 10 pcs 144 +24 | Small 12 pcs 174 +24 | Medium 15 pcs 216 +42 | Medium 20 pcs 288 +42 | Large 25 pcs 360 +48 | Large 30 pcs 432 +48 | Extra Large 40 pcs 576 +72 | Extra Large 50 pcs 720 +72 ; @Topping: Cheese / Coconut
 
-STORE judy-anns-crispy-pata | Judy Ann's Crispy Pata | restaurants | 10:00-22:00
+STORE judy-anns-crispy-pata | Judy Ann's Crispy Pata | restaurants | 12:00-20:00
 tagline: Good Food Brings People Together
 ## Crispy Pata
-Crispy Pata = Regular 1188 | Jumbo 1308
+Crispy Pata = Regular 1188 | Jumbo 1308 ; !/products/judy-anns-crispy-pata.jpg
 ## Pork
 Lechon Macau = 378
 Lumpiang Shanghai = 350
@@ -534,10 +534,10 @@ Cucumber Lemonade = Glass 105 | Pitcher 315
 San Miguel Light = 105
 San Miguel Pale Pilsen = 105
 
-STORE sisig-ni-mutik | Sisig ni Mutik | sisig-crispy-favorites | 10:00-21:00
+STORE sisig-ni-mutik | Sisig ni Mutik | sisig-crispy-favorites | 12:00-20:00
 tagline: Crispy • Saucy • Yummy
 ## Crispy Sisig
-Crispy Sisig = Regular 114 | Large 144 | Barkada 264
+Crispy Sisig = Regular 114 | Large 144 | Barkada 264 ; !/products/sisig-ni-mutik-crispy-sisig.jpg
 ## Crispy Bagnet
 Crispy Bagnet = Regular 150 | Barkada 420
 ## Rice Meals & Shanghai
@@ -550,7 +550,7 @@ Mix Bilao = 756
 Bagnet Bilao = 828
 Bilao Shanghai = 624
 ## Crispy Pata
-Crispy Pata = Regular 468 | Medium 492 | Large 516 ; #new
+Crispy Pata = Regular 468 | Medium 492 | Large 516 ; #new ; !/products/sisig-ni-mutik-crispy-pata.jpg
 `
 
 // Balsa Chicken — "Buttered Half" is unreadable on the menu photo (₱[CONFIRM]).

@@ -21,14 +21,13 @@ import { Button } from '@/components/ui/button'
 import { Field } from '@/components/ui/label'
 import { Input, Textarea } from '@/components/ui/input'
 import { Checkbox, Chip, RadioCard, RadioGroup, Skeleton } from '@/components/ui/controls'
-import { Disclaimer, EmptyState, ErrorBanner } from '@/components/common'
+import { Disclaimer, EmptyState, ErrorBanner, MessageOwner } from '@/components/common'
 import { CartTotals, FEE_NOTE } from '@/components/Cart'
 
 interface FormState {
   customer_name: string
   phone: string
   email: string
-  social_media: string
   address: string
   barangay: string
   city: string
@@ -43,13 +42,12 @@ interface FormState {
 }
 
 const DETAILS_KEY = 'mgl_checkout_details_v1'
-type SavedDetails = Pick<FormState, 'customer_name' | 'phone' | 'email' | 'social_media' | 'address' | 'barangay' | 'city' | 'landmark'>
+type SavedDetails = Pick<FormState, 'customer_name' | 'phone' | 'email' | 'address' | 'barangay' | 'city' | 'landmark'>
 
 const initialForm = (): FormState => ({
   customer_name: '',
   phone: '',
   email: '',
-  social_media: '',
   address: '',
   barangay: '',
   city: '',
@@ -141,7 +139,6 @@ export default function Checkout() {
     if (form.city.trim().length < 2) e.city = 'Please enter your city.'
     if (!normalizePhone(form.phone)) e.phone = 'Use 09XXXXXXXXX or +639XXXXXXXXX.'
     if (!isValidEmail(form.email)) e.email = 'Please enter a valid email address.'
-    if (form.social_media.trim().length < 2) e.social_media = 'Please enter your Facebook/Instagram link or username.'
     if (!form.payment_method) e.payment_method = 'Please choose a payment method.'
     if (!form.delivery_date) e.delivery_date = 'Please choose a delivery date.'
     if (!form.delivery_slot) e.delivery_slot = 'Please choose a delivery time slot.'
@@ -190,7 +187,6 @@ export default function Checkout() {
         customer_name: form.customer_name.trim(),
         phone: form.phone.trim(),
         email: form.email.trim(),
-        social_media: form.social_media.trim(),
         address: form.address.trim(),
         barangay: form.barangay.trim(),
         city: form.city.trim(),
@@ -226,7 +222,6 @@ export default function Checkout() {
         customer_name: payload.customer_name,
         phone: payload.phone,
         email: payload.email,
-        social_media: payload.social_media,
         address: payload.address,
         barangay: payload.barangay,
         city: payload.city,
@@ -270,7 +265,7 @@ export default function Checkout() {
   const methodLabel = onlineMethod ? PAYMENT_METHOD_LABEL[onlineMethod] : ''
   const blockedCheckout = view.hasIssues || !!slotInfo.conflict
   const stepsDone: [boolean, boolean, boolean] = [
-    form.customer_name.trim().length >= 2 && !!normalizePhone(form.phone) && isValidEmail(form.email) && form.social_media.trim().length >= 2 &&
+    form.customer_name.trim().length >= 2 && !!normalizePhone(form.phone) && isValidEmail(form.email) &&
       form.address.trim().length >= 4 && form.barangay.trim().length >= 2 && form.city.trim().length >= 2,
     !!form.delivery_date && !!form.delivery_slot,
     form.payment_method === 'cod' || (!!onlineMethod && form.gcash_reference.trim().length >= 4 && !!proof),
@@ -310,9 +305,7 @@ export default function Checkout() {
               <Field label="Gmail / Email" htmlFor="email" required error={errors.email}>
                 <Input id="email" type="email" inputMode="email" autoComplete="email" value={form.email} onChange={(e) => set('email', e.target.value)} aria-invalid={!!errors.email} placeholder="you@gmail.com" />
               </Field>
-              <Field label="Social Media Account" htmlFor="social" required error={errors.social_media} hint="Facebook or Instagram profile link or username" className="sm:col-span-2">
-                <Input id="social" value={form.social_media} onChange={(e) => set('social_media', e.target.value)} aria-invalid={!!errors.social_media} placeholder="facebook.com/yourname or @yourname" />
-              </Field>
+              <MessageOwner className="sm:col-span-2" />
             </div>
           </Section>
 

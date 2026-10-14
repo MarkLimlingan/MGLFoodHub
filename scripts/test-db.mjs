@@ -3,7 +3,7 @@
 // the security rules and RPCs. Usage: npm run test:db
 import { PGlite } from '@electric-sql/pglite'
 import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto'
-import { readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseMenu, uid } from './generate-seed.mjs'
@@ -131,6 +131,14 @@ ok((await spot('original-benjie-puto-pao', 'Puto', 'Regular'))[0] === '28.80', '
 ok((await spot('aurings-special-pancit-malabon', 'Pancit Malabon Bilao', 'For 30 persons'))[0] === '3600.00', "Auring's 30 persons = 3600.00")
 ok((await spot('raves-diner', 'Beef Belly', '1kg'))[0] === '2340.00', 'Raves Beef Belly 1kg = 2340.00')
 
+const photos = (await pg.query(`select s.slug, p.name, p.image_url from products p join stores s on s.id = p.store_id where p.image_url is not null order by 1, 2`)).rows
+ok(photos.length === 7 && photos.every((r) => existsSync(path.join(root, 'public', r.image_url))), '7 products have menu photos and every photo file exists')
+// A photo the admin uploads must survive re-running the setup.
+await pg.query(`update products set image_url = '/admin-upload.jpg' where image_url = '/products/hazels-puto.jpg'`)
+await pg.exec(readFileSync(path.join(migrationsDir, '20261007000300_seed_menu.sql'), 'utf8'))
+ok((await pg.query(`select count(*)::int n from products where image_url = '/admin-upload.jpg'`)).rows[0].n === 1, "re-running the seed keeps the admin's uploaded photo")
+await pg.query(`update products set image_url = '/products/hazels-puto.jpg' where image_url = '/admin-upload.jpg'`)
+
 // ---------------------------------------------------------------------
 console.log('\nPrice lock')
 await expectError(pg, `update product_variants set price = price + 1 where id = (select id from product_variants limit 1)`, [], 'Prices are fixed', 'superuser cannot change a variant price')
@@ -155,6 +163,7 @@ ok(storeOrder.at(-2) === 'aling-melys-carinderia' && storeOrder.at(-1) === 'rave
 const dashText = (await pg.query(`select count(*)::int n from (select tagline t from stores union all select name from products) x where t ~ '[–—]'`)).rows[0].n
 ok(dashText === 0, 'no dashes in store taglines or product names')
 ok(Array.isArray(info.ordering_guidelines) && info.ordering_guidelines.length === 6, 'checkout info includes the 6 ordering guidelines')
+ok(info.ordering_guidelines[0].includes('12:00 PM to 8:00 PM'), 'guidelines say deliveries run 12:00 PM to 8:00 PM')
 ok(info.min_date > info.today, `checkout min date (${info.min_date}) is after today (${info.today})`)
 
 const variantOf = async (store, product, label = 'Regular') =>
@@ -171,12 +180,11 @@ const base = {
   customer_name: 'Juan Dela Cruz',
   phone: '09171234567',
   email: 'juan@gmail.com',
-  social_media: 'fb.com/juan',
   address: '12 Rizal St.',
   barangay: 'Niugan',
   city: 'Malabon',
   delivery_date: info.min_date,
-  delivery_slot: '10:30-11:30', // Okoy opens 7:30, so its slots start on the half hour
+  delivery_slot: '12:00-13:00', // every store delivers 12:00 PM to 8:00 PM
   payment_method: 'cod',
   agree_terms: true,
 }
@@ -192,6 +200,10 @@ ok(Number(o1.subtotal) === 240, 'server recomputed subtotal (2 × ₱120) ignori
 ok(!('admin_notes' in o1) && !('email' in o1) && !('device_id' in o1), 'tracking payload hides admin notes / email / device id')
 ok(o1.order_status === 'processing' && o1.payment_status === 'cod_unpaid', 'COD order starts as processing / cod_unpaid')
 ok(o1.history.length === 1 && o1.history[0].status === 'processing', 'first status history row created')
+await asSuper()
+const social = (await pg.query('select social_media from orders where order_number = $1', [r1.order_number])).rows[0].social_media
+ok(social === null, 'orders are placed without a social media account')
+await asRole('anon')
 ok((await pg.query('select get_order_by_token($1) as o', ['x'.repeat(32)])).rows[0].o === null, 'unknown token returns nothing')
 
 const r2 = (await place({ ...base, device_id: 'device-b', customer_name: 'Maria', phone: '+639181112222', items: [{ variant_id: okoy, quantity: 1 }] })).rows[0].r
@@ -199,27 +211,29 @@ ok(r2.tracking_token !== r1.tracking_token && r2.order_number !== r1.order_numbe
 
 await expectError(pg, 'select place_order($1::jsonb)', [JSON.stringify({ ...base, delivery_date: info.today, items: [{ variant_id: okoy, quantity: 1 }] })], 'Same day', 'today is rejected')
 await expectError(pg, 'select place_order($1::jsonb)', [JSON.stringify({ ...base, delivery_date: '2099-01-01', items: [{ variant_id: okoy, quantity: 1 }] })], 'up to', 'date beyond max days is rejected')
-await expectError(pg, 'select place_order($1::jsonb)', [JSON.stringify({ ...base, delivery_slot: '06:00-07:00', items: [{ variant_id: okoy, quantity: 1 }] })], 'outside the store hours', 'slot before store opens is rejected')
+await expectError(pg, 'select place_order($1::jsonb)', [JSON.stringify({ ...base, delivery_slot: '11:00-12:00', items: [{ variant_id: okoy, quantity: 1 }] })], 'outside the store hours', 'slot before 12 noon is rejected')
 await expectError(pg, 'select place_order($1::jsonb)', [JSON.stringify({ ...base, phone: '12345', items: [{ variant_id: okoy, quantity: 1 }] })], 'valid PH mobile', 'bad phone rejected')
 await expectError(pg, 'select place_order($1::jsonb)', [JSON.stringify({ ...base, email: 'nope', items: [{ variant_id: okoy, quantity: 1 }] })], 'valid email', 'bad email rejected')
 await expectError(pg, 'select place_order($1::jsonb)', [JSON.stringify({ ...base, website: 'spam', items: [{ variant_id: okoy, quantity: 1 }] })], 'could not place', 'honeypot rejects bots')
 await expectError(pg, 'select place_order($1::jsonb)', [JSON.stringify({ ...base, agree_terms: false, items: [{ variant_id: okoy, quantity: 1 }] })], 'acknowledgement', 'acknowledgement checkbox required')
 await expectError(pg, 'select place_order($1::jsonb)', [JSON.stringify({ ...base, items: [] })], 'empty', 'empty cart rejected')
 
-// Hazel's (7–12) + Raves (11–23): only 11:00–12:00 allowed
+// Every store delivers 12:00 PM to 8:00 PM, so any mix of stores shares the same 8 slots.
+const hours = (await pg.query(`select count(*)::int n from stores where open_time = '12:00' and close_time = '20:00'`)).rows[0].n
+ok(hours === 13, 'all 13 stores deliver 12:00 PM to 8:00 PM')
 const hazel = await variantOf('hazels-special-puto', 'Puto Pao', '10pcs')
 const raves = await variantOf('raves-diner', 'Classic')
-await expectError(pg, 'select place_order($1::jsonb)', [JSON.stringify({ ...base, phone: '09170000001', delivery_slot: '10:00-11:00', items: [{ variant_id: hazel, quantity: 1 }, { variant_id: raves, quantity: 1 }] })], 'outside the store hours', "Hazel's + Raves rejects 10–11 slot")
-const r3 = (await place({ ...base, phone: '09170000001', delivery_slot: '11:00-12:00', items: [{ variant_id: hazel, quantity: 1 }, { variant_id: raves, quantity: 1 }] })).rows[0].r
-ok(!!r3.order_number, "Hazel's + Raves accepts the 11–12 overlap slot")
+await expectError(pg, 'select place_order($1::jsonb)', [JSON.stringify({ ...base, phone: '09170000001', delivery_slot: '20:00-21:00', items: [{ variant_id: hazel, quantity: 1 }, { variant_id: raves, quantity: 1 }] })], 'outside the store hours', "Hazel's + Raves rejects a slot after 8 PM")
+const r3 = (await place({ ...base, phone: '09170000001', delivery_slot: '19:00-20:00', items: [{ variant_id: hazel, quantity: 1 }, { variant_id: raves, quantity: 1 }] })).rows[0].r
+ok(!!r3.order_number, "Hazel's + Raves accepts the last slot, 7 to 8 PM")
 
 // Required option + extra toppings
 const peachy = await variantOf('anny-dading-peachy-peachy', 'Peachy-Peachy', 'Small 10 pcs')
-await expectError(pg, 'select place_order($1::jsonb)', [JSON.stringify({ ...base, phone: '09170000002', delivery_slot: '10:00-11:00', items: [{ variant_id: peachy, quantity: 1 }] })], 'choose a topping', 'required option enforced')
+await expectError(pg, 'select place_order($1::jsonb)', [JSON.stringify({ ...base, phone: '09170000002', delivery_slot: '12:00-13:00', items: [{ variant_id: peachy, quantity: 1 }] })], 'choose a topping', 'required option enforced')
 const cheese = await choiceOf('anny-dading-peachy-peachy', 'Peachy-Peachy', 'Cheese')
 const benjieYema = await choiceOf('original-benjie-puto-pao', 'Flavored Puto Pao', 'Yema')
-await expectError(pg, 'select place_order($1::jsonb)', [JSON.stringify({ ...base, phone: '09170000002', delivery_slot: '10:00-11:00', items: [{ variant_id: peachy, quantity: 1, choice_ids: [benjieYema] }] })], 'Invalid option', "another product's option is rejected")
-const r4 = (await place({ ...base, phone: '09170000002', delivery_slot: '10:00-11:00', items: [{ variant_id: peachy, quantity: 1, choice_ids: [cheese], extra_toppings: true }] })).rows[0].r
+await expectError(pg, 'select place_order($1::jsonb)', [JSON.stringify({ ...base, phone: '09170000002', delivery_slot: '12:00-13:00', items: [{ variant_id: peachy, quantity: 1, choice_ids: [benjieYema] }] })], 'Invalid option', "another product's option is rejected")
+const r4 = (await place({ ...base, phone: '09170000002', delivery_slot: '12:00-13:00', items: [{ variant_id: peachy, quantity: 1, choice_ids: [cheese], extra_toppings: true }] })).rows[0].r
 const o4 = (await pg.query('select get_order_by_token($1) as o', [r4.tracking_token])).rows[0].o
 ok(Number(o4.subtotal) === 168, 'Peachy Small 10 pcs + extra toppings = ₱168.00')
 ok(o4.items[0].options.length === 2, 'options snapshot stores topping + extra toppings')

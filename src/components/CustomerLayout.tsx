@@ -8,6 +8,7 @@ import { Logo } from './Logo'
 import { CartSheet, useCartUI } from './Cart'
 import { OrderingGuidelines, useGuidelines } from './OrderingGuidelines'
 import { DELIVERY_DISCLAIMER, ScheduledNotice } from './common'
+import { InstallDialog, InstallLink } from './InstallApp'
 import { Skeleton } from './ui/controls'
 
 /** Same rule everywhere so the bars never hide content. */
@@ -188,6 +189,7 @@ function Footer() {
             <button type="button" onClick={() => openGuidelines(true)} className={cn(item, 'text-left')}>
               Ordering guidelines
             </button>
+            <InstallLink className={cn(item, 'text-left')} />
           </div>
           <div className="col-span-2 sm:col-span-1">
             <p className={heading}>Categories</p>
@@ -269,6 +271,7 @@ export function CustomerLayout() {
       <MobileNav />
       <CartSheet />
       <OrderingGuidelines />
+      <InstallDialog />
     </div>
   )
 }

@@ -80,6 +80,7 @@ export default function AdminLayout() {
   }, [])
 
   useEffect(() => {
+    let joined = false
     const channel = supabase
       .channel('admin-orders-live')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
@@ -111,11 +112,23 @@ export default function AdminLayout() {
           })
         }
       })
-      .subscribe()
+      .subscribe((status) => {
+        // The channel rejoins by itself after the socket drops; reload whatever changed meanwhile.
+        if (status !== 'SUBSCRIBED') return
+        if (joined) setVersion((v) => v + 1)
+        joined = true
+      })
     return () => {
       void supabase.removeChannel(channel)
     }
   }, [navigate])
+
+  // Safety net if the realtime socket drops while the tab is in the background.
+  useEffect(() => {
+    const onVisible = () => document.visibilityState === 'visible' && setVersion((v) => v + 1)
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [])
 
   useEffect(() => {
     document.title = unseen ? `(${unseen}) New order · MGL Admin` : 'MGL Food Hub · Admin'

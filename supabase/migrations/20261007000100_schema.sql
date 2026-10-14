@@ -111,7 +111,7 @@ create table if not exists public.orders (
   customer_name text not null,
   phone text not null,
   email text not null,
-  social_media text not null,
+  social_media text, -- no longer asked at checkout; kept for older orders
   address text not null,
   barangay text not null,
   city text not null,
@@ -139,6 +139,8 @@ create table if not exists public.orders (
 create index if not exists orders_delivery_date_idx on public.orders(delivery_date);
 create index if not exists orders_created_at_idx on public.orders(created_at desc);
 create index if not exists orders_phone_idx on public.orders(phone);
+-- Databases created while checkout still required a social media account.
+alter table public.orders alter column social_media drop not null;
 
 create table if not exists public.order_items (
   id uuid primary key default gen_random_uuid(),
@@ -212,7 +214,7 @@ insert into public.settings (key, value) values
   ('email_notifications_enabled', 'false'::jsonb),
   ('max_orders_per_phone_per_day', '5'::jsonb),
   ('ordering_guidelines', jsonb_build_array(
-    'We deliver via Grab within Metro Manila from 12:00 PM to 6:00 PM.',
+    'We deliver via Grab within Metro Manila from 12:00 PM to 8:00 PM.',
     'Pay by Cash on Delivery (COD) or online via GCash, MariBank or GoTyme.',
     'Orders are for booking (scheduled delivery) only. Same day delivery is not available.',
     'We will confirm your order by text or call.',
@@ -221,10 +223,11 @@ insert into public.settings (key, value) values
   ))
 on conflict (key) do nothing;
 
--- Existing databases: update the two default guidelines that changed (custom ones are kept).
+-- Existing databases: update the default guidelines that changed (custom ones are kept).
 update public.settings
    set value = (
      select coalesce(jsonb_agg(case g
+         when 'We deliver via Grab within Metro Manila from 12:00 PM to 6:00 PM.' then 'We deliver via Grab within Metro Manila from 12:00 PM to 8:00 PM.'
          when 'Pay by Cash on Delivery (COD) or online (GCash).' then 'Pay by Cash on Delivery (COD) or online via GCash, MariBank or GoTyme.'
          when 'Orders are for booking (scheduled delivery) only. Same-day delivery is not available.' then 'Orders are for booking (scheduled delivery) only. Same day delivery is not available.'
          else g end order by n), '[]'::jsonb)

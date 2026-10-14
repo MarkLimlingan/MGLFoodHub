@@ -168,7 +168,8 @@ export interface OrderRow {
   customer_name: string
   phone: string
   email: string
-  social_media: string
+  /** Only on orders placed before checkout stopped asking for it. */
+  social_media: string | null
   address: string
   barangay: string
   city: string

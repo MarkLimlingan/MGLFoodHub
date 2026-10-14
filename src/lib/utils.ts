@@ -142,8 +142,8 @@ export function formatPhone(p: string): string {
 export const isValidEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e.trim())
 
 /** Social handle/link → URL to open (admin side). */
-export function socialUrl(s: string): string | null {
-  const v = s.trim()
+export function socialUrl(s: string | null): string | null {
+  const v = s?.trim() ?? ''
   if (!v) return null
   if (/^https?:\/\//i.test(v)) return v
   if (/^(www\.)?(facebook|fb|instagram|m\.facebook)\.(com|me)\//i.test(v)) return `https://${v}`

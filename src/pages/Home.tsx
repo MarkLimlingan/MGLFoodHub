@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/controls'
 import { EmptyState, ErrorBanner, SmartImage } from '@/components/common'
 import { Logo } from '@/components/Logo'
+import { InstallBanner } from '@/components/InstallApp'
 
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
@@ -72,6 +73,8 @@ export default function Home() {
 
   return (
     <div className="mx-auto max-w-6xl px-4">
+      <InstallBanner className="mt-4" />
+
       {/* ------------------------------------------------------------ Hero */}
       <section className="relative mt-4 overflow-hidden rounded-[2rem] bg-[#fdf3e3] sm:mt-6">
         <div className="pointer-events-none absolute -right-24 top-0 hidden h-full w-[55%] rounded-l-[45%] bg-[#f6dcae] md:block" />

@@ -292,9 +292,11 @@ export default function OrderDetail() {
                     <ExternalLink className="size-4 shrink-0" /> {o.social_media}
                   </a>
                 ) : (
-                  <p className="flex items-center gap-1.5 text-sm text-navy/75">
-                    <ExternalLink className="size-4" /> {o.social_media}
-                  </p>
+                  o.social_media && (
+                    <p className="flex items-center gap-1.5 text-sm text-navy/75">
+                      <ExternalLink className="size-4" /> {o.social_media}
+                    </p>
+                  )
                 )}
               </div>
               <div className="space-y-1 text-sm">
