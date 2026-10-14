@@ -8,7 +8,7 @@ import { Logo } from './Logo'
 import { CartSheet, useCartUI } from './Cart'
 import { OrderingGuidelines, useGuidelines } from './OrderingGuidelines'
 import { DELIVERY_DISCLAIMER, ScheduledNotice } from './common'
-import { InstallDialog, InstallLink } from './InstallApp'
+import { InstallDialog, InstallLink, InstallNavButton, InstallNavItem } from './InstallApp'
 import { Skeleton } from './ui/controls'
 
 /** Same rule everywhere so the bars never hide content. */
@@ -76,7 +76,8 @@ function Navbar() {
           </button>
         </nav>
 
-        <div className="hidden md:block">
+        <div className="hidden items-center gap-2 md:flex">
+          <InstallNavButton />
           <CartButton />
         </div>
       </div>
@@ -95,7 +96,7 @@ function MobileNav() {
 
   const item = (active: boolean) =>
     cn(
-      'relative flex h-11 w-11 items-center justify-center rounded-full transition-colors active:scale-95',
+      'relative flex h-11 w-10 items-center justify-center rounded-full transition-colors active:scale-95 min-[360px]:w-11',
       active ? 'bg-brand text-navy shadow-sm shadow-brand/30' : 'text-navy/55 hover:bg-sand hover:text-navy',
     )
   const links: { to: string; label: string; icon: LucideIcon; active: boolean }[] = [
@@ -133,6 +134,7 @@ function MobileNav() {
             )}
           </button>
         </li>
+        <InstallNavItem className={item(false)} />
         {after.map(({ to, label, icon: Icon, active }) => (
           <li key={label}>
             <Link to={to} className={item(active)} aria-label={label} title={label} aria-current={active ? 'page' : undefined}>

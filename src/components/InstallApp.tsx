@@ -1,7 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { create } from 'zustand'
 import { toast } from 'sonner'
-import { CircleCheck, Download, Ellipsis, EllipsisVertical, ExternalLink, Share, SquarePlus, X, type LucideIcon } from 'lucide-react'
+import { ArrowDown, CircleCheck, Download, Ellipsis, EllipsisVertical, ExternalLink, Share, SquarePlus, X, type LucideIcon } from 'lucide-react'
 import { installPlatform, promptInstall, useInstallState, type InstallPlatform } from '@/lib/install'
 import { cn, storage } from '@/lib/utils'
 import { Button } from './ui/button'
@@ -113,6 +113,40 @@ export function InstallBanner({ className }: { className?: string }) {
         <X className="size-4" />
       </button>
     </section>
+  )
+}
+
+/** Navbar on tablets and computers, beside the cart. Shows the real app icon. */
+export function InstallNavButton() {
+  const { installed, install } = useInstallApp()
+  if (installed) return null
+  return (
+    <button
+      type="button"
+      onClick={() => void install()}
+      className="flex items-center gap-2 rounded-full border border-navy/15 bg-white py-1 pl-1 pr-3.5 text-sm font-semibold text-navy transition hover:border-brand hover:text-brand-600 active:scale-95"
+    >
+      <img src="/icon-192.png" alt="" className="size-8 rounded-[9px] ring-1 ring-navy/10" />
+      Install App
+    </button>
+  )
+}
+
+/** Phone bottom bar, right next to the cart. */
+export function InstallNavItem({ className }: { className?: string }) {
+  const { installed, install } = useInstallApp()
+  if (installed) return null
+  return (
+    <li>
+      <button type="button" onClick={() => void install()} className={className} aria-label="Install the app" title="Install the app">
+        <span className="relative">
+          <img src="/icon-192.png" alt="" className="size-[30px] rounded-[9px] ring-1 ring-navy/15" />
+          <span className="absolute -bottom-1 -right-1.5 flex size-4 items-center justify-center rounded-full bg-brand text-navy ring-2 ring-white">
+            <ArrowDown className="size-2.5" strokeWidth={3} />
+          </span>
+        </span>
+      </button>
+    </li>
   )
 }
 
