@@ -31,6 +31,10 @@ export const ONLINE_METHODS: OnlineMethod[] = ['gcash', 'maribank', 'gotyme']
 
 export const isOnline = (m: PaymentMethod): m is OnlineMethod => m !== 'cod'
 
+/** Cash on Delivery is only for orders up to this food subtotal (also enforced by the database). */
+export const COD_MAX = 2000
+export const COD_MAX_LABEL = '₱2,000'
+
 /** Official logos (public/payments). */
 export const PAYMENT_LOGO: Record<OnlineMethod, string> = {
   gcash: '/payments/gcash.png',

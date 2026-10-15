@@ -13,7 +13,8 @@ import { Input, Textarea } from '@/components/ui/input'
 import { Field } from '@/components/ui/label'
 import { RadioCard, RadioGroup, Skeleton } from '@/components/ui/controls'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
-import { EmptyState, ErrorBanner, Lightbox } from '@/components/common'
+import { EmptyState, ErrorBanner, Lightbox, SmartImage } from '@/components/common'
+import { GoogleLogo } from '@/components/GoogleLink'
 import { PaymentLogo } from '@/components/PaymentLogo'
 import { AdminPageHeader, OrderBadges, Panel } from './ui'
 import { useAdminLive } from './AdminLayout'
@@ -298,6 +299,7 @@ export default function OrderDetail() {
                     </p>
                   )
                 )}
+                <GoogleAccount order={o} />
               </div>
               <div className="space-y-1 text-sm">
                 <p className="flex items-start gap-1.5">
@@ -569,5 +571,42 @@ function CallLogDialog({ open, onOpenChange, orderId, onSaved }: { open: boolean
         </div>
       </DialogContent>
     </Dialog>
+  )
+}
+
+/** The Google account that placed the order, and its order history, to help spot bogus buyers. */
+function GoogleAccount({ order }: { order: OrderRow }) {
+  const [stats, setStats] = useState<{ total: number; cancelled: number } | null>(null)
+  const userId = order.customer_user_id
+
+  useEffect(() => {
+    if (!userId) return
+    const count = (cancelledOnly: boolean) => {
+      let q = supabase.from('orders').select('id', { count: 'exact', head: true }).eq('customer_user_id', userId)
+      if (cancelledOnly) q = q.eq('order_status', 'cancelled')
+      return q
+    }
+    void Promise.all([count(false), count(true)]).then(([all, cancelled]) =>
+      setStats({ total: all.count ?? 0, cancelled: cancelled.count ?? 0 }),
+    )
+  }, [userId, order.order_status])
+
+  if (!userId) return null
+  return (
+    <div className="mt-2 flex items-center gap-2.5 rounded-xl bg-[#4285F4]/[0.06] px-3 py-2">
+      <SmartImage src={order.google_picture} alt="" className="size-9 shrink-0 rounded-full" />
+      <div className="min-w-0 text-sm">
+        <p className="flex items-center gap-1 text-xs font-semibold text-navy/60">
+          <GoogleLogo className="size-3.5" /> Google verified
+        </p>
+        <p className="truncate font-semibold">{order.google_name ?? 'Google user'}</p>
+        {order.google_email && <p className="truncate text-xs text-navy/60">{order.google_email}</p>}
+        {stats && (
+          <p className={cn('text-xs', stats.cancelled ? 'font-semibold text-brand-red' : 'text-navy/55')}>
+            {stats.total} {stats.total === 1 ? 'order' : 'orders'} from this account{stats.cancelled ? `, ${stats.cancelled} cancelled` : ''}
+          </p>
+        )}
+      </div>
+    </div>
   )
 }

@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react'
 import { create } from 'zustand'
 import { BadgeCheck, Banknote, CalendarClock, PhoneCall, ReceiptText, Store, Truck } from 'lucide-react'
 import { supabase, supabaseConfigured } from '@/lib/supabase'
+import { GOOGLE_RETURN_KEY } from '@/lib/google'
 import { Button } from './ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from './ui/dialog'
 
 /** Shown until the admin's version loads (and if it can't load). Admins edit these in Settings. */
 export const DEFAULT_GUIDELINES = [
   'We deliver via Grab within Metro Manila from 12:00 PM to 8:00 PM.',
-  'Pay by Cash on Delivery (COD) or online via GCash, MariBank or GoTyme.',
+  'Pay by Cash on Delivery (COD) for orders up to ₱2,000, or online via GCash, MariBank or GoTyme.',
   'Orders are for booking (scheduled delivery) only. Same day delivery is not available.',
   'We will confirm your order by text or call.',
   'Menu prices are VAT inclusive and may vary or be subject to change by the merchant. Higher delivery fees may also apply for long distance deliveries.',
@@ -31,7 +32,15 @@ export function OrderingGuidelines() {
   const [items, setItems] = useState<string[]>(DEFAULT_GUIDELINES)
 
   useEffect(() => {
-    setOpen(true)
+    // Coming back from signing in with Google is a page load too, but they've already seen it.
+    let returning = false
+    try {
+      returning = sessionStorage.getItem(GOOGLE_RETURN_KEY) === '1'
+      sessionStorage.removeItem(GOOGLE_RETURN_KEY)
+    } catch {
+      /* storage blocked: show it */
+    }
+    if (!returning) setOpen(true)
   }, [setOpen])
 
   useEffect(() => {

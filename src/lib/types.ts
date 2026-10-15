@@ -157,6 +157,8 @@ export interface CheckoutInfo {
   delivery_fee_note: string
   email_notifications_enabled: boolean
   ordering_guidelines?: string[]
+  /** Customers must sign in with Google before ordering (missing on databases not yet updated). */
+  require_google_login?: boolean
 }
 
 /** Full order row (admin only). */
@@ -170,6 +172,11 @@ export interface OrderRow {
   email: string
   /** Only on orders placed before checkout stopped asking for it. */
   social_media: string | null
+  /** Set when the customer was signed in with Google. */
+  customer_user_id: string | null
+  google_name: string | null
+  google_email: string | null
+  google_picture: string | null
   address: string
   barangay: string
   city: string

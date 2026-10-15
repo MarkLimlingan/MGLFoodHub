@@ -14,7 +14,7 @@ React + Vite + TypeScript + Tailwind (shadcn-style components) · Supabase (Post
    - `supabase/migrations/20261007000100_schema.sql`: tables, RLS, grants, the price-lock trigger, storage buckets, realtime
    - `supabase/migrations/20261007000200_functions.sql`: `place_order`, `get_order_by_token`, `find_order`, `request_cancellation`, `resubmit_gcash_proof`, `get_checkout_info`, `admin_order_action`
    - `supabase/migrations/20261007000300_seed_menu.sql`: all 13 stores, 76 sections, 414 products, 527 variants (generated, see §5)
-3. **Auth → Providers → Email**: turn **off** "Allow new users to sign up".
+3. **Auth → Providers → Email**: turn **off** "Allow new users to sign up" (turn it back **on** if you use Google verification, §6b; orders still require a Google account, so email sign ups can't order or see anything).
 4. Create the admin account(s): **Authentication → Users → Add user** (email + password, auto-confirm), then in the SQL editor:
    ```sql
    insert into admin_users (user_id)
@@ -69,6 +69,17 @@ supabase functions deploy send-order-email --no-verify-jwt
 supabase secrets set RESEND_API_KEY=re_xxx RESEND_FROM="MGL Food Hub <orders@yourdomain.com>" SITE_URL=https://yourdomain.com
 ```
 Then turn on **Email confirmations** in Admin → Settings. The function only emails the address on the order, only once, and only within 15 minutes of the order being placed.
+
+## 6b. Optional: Google (Gmail) verification at checkout (anti-scam)
+
+When **Admin → Settings → Require Google account at checkout** is on, customers must sign in with Google before they can check out (the cart and checkout show **Continue with Google**), and `place_order` rejects anyone not signed in with Google (checked from the token's `app_metadata`, which only Supabase Auth can write). Each order saves the Google name, Gmail address and photo, the admin order page shows how many orders and cancellations that Google account has, and the daily order limit also applies per Google account.
+
+1. **Google Cloud Console** (console.cloud.google.com): create a project. In **Google Auth Platform**, set **Audience** to External, fill in **Branding** (app name, support email; links to `/privacy` and `/terms`), and check **Data Access** has `openid`, `userinfo.email` and `userinfo.profile`. Skip the logo unless you want to wait for Google's brand verification.
+2. **Clients → Create client → Web application**: Authorized JavaScript origins `https://<your-domain>` (and `http://localhost:5173` while testing); Authorized redirect URIs `https://<project-ref>.supabase.co/auth/v1/callback`. Copy the Client ID and Client Secret.
+3. **Supabase → Authentication → Sign In / Providers → Google**: enable, paste the Client ID and Client Secret. Make sure **Allow new users to sign up** is on.
+4. **Supabase → Authentication → URL Configuration**: Site URL = your live URL; Redirect URLs include `https://<your-domain>/**` (and `http://localhost:5173/**` for local testing).
+5. **Google Auth Platform → Audience → Publish app** so any Gmail can sign in (in Testing, only listed test users can).
+6. Test a Google sign in from the cart, then turn the switch on in Admin → Settings.
 
 ## 7. Deploy
 

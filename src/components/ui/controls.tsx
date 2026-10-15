@@ -48,7 +48,7 @@ export function RadioCard({ className, children, ...props }: React.ComponentProp
   return (
     <RadioGroupPrimitive.Item
       className={cn(
-        'group flex w-full items-center gap-3 rounded-2xl border-2 border-sand-200 bg-white p-3.5 text-left transition-all hover:border-brand/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 data-[state=checked]:border-brand data-[state=checked]:bg-brand-50',
+        'group flex w-full items-center gap-3 rounded-2xl border-2 border-sand-200 bg-white p-3.5 text-left transition-all hover:border-brand/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 data-[state=checked]:border-brand data-[state=checked]:bg-brand-50 disabled:cursor-not-allowed disabled:bg-sand/40 disabled:hover:border-sand-200 [&:disabled>*]:opacity-60',
         className,
       )}
       {...props}

@@ -255,7 +255,7 @@ export default function Home() {
       <section className="mt-10 grid grid-cols-1 gap-4 rounded-[2rem] bg-white/70 p-5 ring-1 ring-sand-200/70 sm:grid-cols-2 sm:p-7 lg:grid-cols-4">
         {[
           { icon: CalendarClock, t: 'Scheduled Delivery', d: 'Book for tomorrow or any day within 30 days.' },
-          { icon: Banknote, t: 'COD or Online Payment', d: 'Pay cash to the rider or send via GCash, MariBank or GoTyme.' },
+          { icon: Banknote, t: 'COD or Online Payment', d: 'Pay cash to the rider (orders up to ₱2,000) or send via GCash, MariBank or GoTyme.' },
           { icon: Radio, t: 'Live Order Tracking', d: 'Your own private link shows every update.' },
           { icon: StoreIcon, t: 'One Delivery Fee', d: 'Order from all 13 merchants in one go.' },
         ].map(({ icon: Icon, t, d }) => (

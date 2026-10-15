@@ -9,7 +9,7 @@ import { useCatalog, useCartView } from '@/hooks/useCatalog'
 import { useCart } from '@/store/cart'
 import { supabase, errorMessage } from '@/lib/supabase'
 import type { CheckoutInfo, OnlineMethod, PaymentMethod } from '@/lib/types'
-import { ONLINE_METHODS, PAYMENT_METHOD_LABEL, paymentAccount } from '@/lib/orderStatus'
+import { COD_MAX, COD_MAX_LABEL, ONLINE_METHODS, PAYMENT_METHOD_LABEL, paymentAccount } from '@/lib/orderStatus'
 import { PaymentLogo } from '@/components/PaymentLogo'
 import { computeSlots } from '@/lib/slots'
 import { saveMyOrder } from '@/lib/myOrders'
@@ -23,6 +23,8 @@ import { Input, Textarea } from '@/components/ui/input'
 import { Checkbox, Chip, RadioCard, RadioGroup, Skeleton } from '@/components/ui/controls'
 import { Disclaimer, EmptyState, ErrorBanner, MessageOwner } from '@/components/common'
 import { CartTotals, FEE_NOTE } from '@/components/Cart'
+import { GoogleGate, GoogleLinked } from '@/components/GoogleLink'
+import { devGooglePreview, useGoogleLink } from '@/lib/google'
 
 interface FormState {
   customer_name: string
@@ -84,6 +86,21 @@ export default function Checkout() {
   const submitting = useRef(false)
   const placed = useRef(false)
 
+  // Anti-scam: when the admin requires it, customers sign in with Google (Gmail) before they can order.
+  const google = useGoogleLink()
+  const requireGoogle = info?.require_google_login === true || devGooglePreview()
+  const needsGoogle = requireGoogle && !google.profile
+
+  useEffect(() => {
+    const p = google.profile
+    if (!p) return
+    setForm((f) => ({
+      ...f,
+      customer_name: f.customer_name.trim() ? f.customer_name : p.name,
+      email: f.email.trim() || !p.email ? f.email : p.email,
+    }))
+  }, [google.profile?.name, google.profile?.email]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const loadInfo = async () => {
     setInfoError(null)
     const { data, error } = await supabase.rpc('get_checkout_info')
@@ -130,6 +147,13 @@ export default function Checkout() {
 
   // GCash, MariBank and GoTyme share one flow: pay, then send the reference number + screenshot.
   const onlineMethod: OnlineMethod | null = form.payment_method && form.payment_method !== 'cod' ? form.payment_method : null
+  const codTooHigh = view.subtotalCents > COD_MAX * 100
+
+  // The cart can grow past the COD limit after COD was picked (e.g. another tab).
+  useEffect(() => {
+    if (codTooHigh && form.payment_method === 'cod') set('payment_method', '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [codTooHigh])
 
   function validate(): Errors {
     const e: Errors = {}
@@ -140,6 +164,7 @@ export default function Checkout() {
     if (!normalizePhone(form.phone)) e.phone = 'Use 09XXXXXXXXX or +639XXXXXXXXX.'
     if (!isValidEmail(form.email)) e.email = 'Please enter a valid email address.'
     if (!form.payment_method) e.payment_method = 'Please choose a payment method.'
+    else if (form.payment_method === 'cod' && codTooHigh) e.payment_method = `Cash on Delivery is only for orders up to ${COD_MAX_LABEL}. Please pay online.`
     if (!form.delivery_date) e.delivery_date = 'Please choose a delivery date.'
     if (!form.delivery_slot) e.delivery_slot = 'Please choose a delivery time slot.'
     if (onlineMethod) {
@@ -263,18 +288,20 @@ export default function Checkout() {
   const total = view.subtotalCents / 100
   const account = onlineMethod ? paymentAccount(info, onlineMethod) : null
   const methodLabel = onlineMethod ? PAYMENT_METHOD_LABEL[onlineMethod] : ''
-  const blockedCheckout = view.hasIssues || !!slotInfo.conflict
+  const blockedCheckout = view.hasIssues || !!slotInfo.conflict || needsGoogle
   const stepsDone: [boolean, boolean, boolean] = [
     form.customer_name.trim().length >= 2 && !!normalizePhone(form.phone) && isValidEmail(form.email) &&
       form.address.trim().length >= 4 && form.barangay.trim().length >= 2 && form.city.trim().length >= 2,
     !!form.delivery_date && !!form.delivery_slot,
-    form.payment_method === 'cod' || (!!onlineMethod && form.gcash_reference.trim().length >= 4 && !!proof),
+    (form.payment_method === 'cod' && !codTooHigh) || (!!onlineMethod && form.gcash_reference.trim().length >= 4 && !!proof),
   ]
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:py-12">
       <h1 className="font-display text-3xl font-bold sm:text-4xl">Checkout</h1>
-      <p className="mt-1.5 text-sm text-navy/60">Scheduled delivery only. The earliest is tomorrow. No account needed.</p>
+      <p className="mt-1.5 text-sm text-navy/60">
+        Scheduled delivery only. The earliest is tomorrow. {requireGoogle ? 'Orders are verified with Google.' : 'No account needed.'}
+      </p>
       <CheckoutSteps done={stepsDone} />
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_380px]">
@@ -294,6 +321,11 @@ export default function Checkout() {
             </label>
           </div>
 
+          {requireGoogle && !google.ready && <Skeleton className="h-40 rounded-2xl" />}
+          {needsGoogle && google.ready && <GoogleGate onLink={google.link} error={google.error} />}
+          {requireGoogle && google.profile && <GoogleLinked profile={google.profile} onUnlink={google.unlink} />}
+
+          <div hidden={needsGoogle} className="space-y-5">
           <Section step={1} icon={<User />} title="Your details">
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Full Name" htmlFor="name" required error={errors.customer_name} className="sm:col-span-2">
@@ -390,11 +422,13 @@ export default function Checkout() {
 
           <Section step={4} icon={<Wallet />} title="Payment method">
             <RadioGroup value={form.payment_method} onValueChange={(v) => set('payment_method', v as FormState['payment_method'])} className="grid gap-3 sm:grid-cols-2" aria-label="Payment method">
-              <RadioCard value="cod">
+              <RadioCard value="cod" disabled={codTooHigh}>
                 <PaymentLogo method="cod" />
                 <span className="min-w-0">
                   <span className="block font-semibold">Cash on Delivery</span>
-                  <span className="block text-xs text-navy/60">We'll call you to confirm</span>
+                  <span className={cn('block text-xs', codTooHigh ? 'font-medium text-brand-red' : 'text-navy/60')}>
+                    {codTooHigh ? `Only for orders up to ${COD_MAX_LABEL}` : `Up to ${COD_MAX_LABEL}. We'll call to confirm`}
+                  </span>
                 </span>
               </RadioCard>
               {ONLINE_METHODS.map((m) => (
@@ -504,6 +538,7 @@ export default function Checkout() {
               {busy ? 'Placing your order…' : <><Lock /> Place Order · {peso(total)}</>}
             </Button>
             <p className="text-center text-xs text-navy/55">{info?.delivery_fee_note || FEE_NOTE}</p>
+          </div>
           </div>
         </form>
 

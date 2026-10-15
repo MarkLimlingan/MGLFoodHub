@@ -147,6 +147,15 @@ create index if not exists orders_created_at_idx on public.orders(created_at des
 create index if not exists orders_phone_idx on public.orders(phone);
 -- Databases created while checkout still required a social media account.
 alter table public.orders alter column social_media drop not null;
+-- Google account that placed the order (Admin → Settings → Require Google account at checkout).
+alter table public.orders add column if not exists customer_user_id uuid references auth.users(id) on delete set null;
+alter table public.orders add column if not exists google_name text;
+alter table public.orders add column if not exists google_email text;
+alter table public.orders add column if not exists google_picture text;
+create index if not exists orders_customer_user_idx on public.orders(customer_user_id);
+-- Facebook verification was replaced by Google before it was ever switched on.
+alter table public.orders drop column if exists facebook_name;
+alter table public.orders drop column if exists facebook_picture;
 
 create table if not exists public.order_items (
   id uuid primary key default gen_random_uuid(),
@@ -219,22 +228,25 @@ insert into public.settings (key, value) values
   ('delivery_fee_note', '"Delivery fee will be confirmed by our team (higher fees may apply for long distance deliveries)."'::jsonb),
   ('email_notifications_enabled', 'false'::jsonb),
   ('max_orders_per_phone_per_day', '5'::jsonb),
+  ('require_google_login', 'false'::jsonb),
   ('ordering_guidelines', jsonb_build_array(
     'We deliver via Grab within Metro Manila from 12:00 PM to 8:00 PM.',
-    'Pay by Cash on Delivery (COD) or online via GCash, MariBank or GoTyme.',
+    'Pay by Cash on Delivery (COD) for orders up to ₱2,000, or online via GCash, MariBank or GoTyme.',
     'Orders are for booking (scheduled delivery) only. Same day delivery is not available.',
     'We will confirm your order by text or call.',
     'Menu prices are VAT inclusive and may vary or be subject to change by the merchant. Higher delivery fees may also apply for long distance deliveries.',
     'You can order from all merchants in the app and pay only one delivery fee.'
   ))
 on conflict (key) do nothing;
+delete from public.settings where key = 'require_facebook_login'; -- replaced by require_google_login
 
 -- Existing databases: update the default guidelines that changed (custom ones are kept).
 update public.settings
    set value = (
      select coalesce(jsonb_agg(case g
          when 'We deliver via Grab within Metro Manila from 12:00 PM to 6:00 PM.' then 'We deliver via Grab within Metro Manila from 12:00 PM to 8:00 PM.'
-         when 'Pay by Cash on Delivery (COD) or online (GCash).' then 'Pay by Cash on Delivery (COD) or online via GCash, MariBank or GoTyme.'
+         when 'Pay by Cash on Delivery (COD) or online (GCash).' then 'Pay by Cash on Delivery (COD) for orders up to ₱2,000, or online via GCash, MariBank or GoTyme.'
+         when 'Pay by Cash on Delivery (COD) or online via GCash, MariBank or GoTyme.' then 'Pay by Cash on Delivery (COD) for orders up to ₱2,000, or online via GCash, MariBank or GoTyme.'
          when 'Orders are for booking (scheduled delivery) only. Same-day delivery is not available.' then 'Orders are for booking (scheduled delivery) only. Same day delivery is not available.'
          else g end order by n), '[]'::jsonb)
      from jsonb_array_elements_text(value) with ordinality as t(g, n))
@@ -290,6 +302,21 @@ create trigger product_variants_price_lock before update on public.product_varia
 drop trigger if exists option_choices_price_lock on public.option_choices;
 create trigger option_choices_price_lock before update on public.option_choices
   for each row execute function public.prevent_price_change();
+
+-- Cash on Delivery is only for orders up to ₱2,000 (checkout blocks it too).
+create or replace function public.enforce_cod_limit()
+returns trigger language plpgsql as $$
+begin
+  if new.payment_method = 'cod' and new.subtotal > 2000 then
+    raise exception 'Cash on Delivery is only for orders up to ₱2,000. Please pay online via GCash, MariBank or GoTyme.'
+      using errcode = 'check_violation';
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists orders_cod_limit on public.orders;
+create trigger orders_cod_limit before insert on public.orders
+  for each row execute function public.enforce_cod_limit();
 
 -- ---------------------------------------------------------------------
 -- Grants (column-level: admins may only touch the columns they are allowed to)
@@ -596,6 +623,7 @@ begin
     ),
     'delivery_fee_note', coalesce(public.setting('delivery_fee_note') #>> '{}', ''),
     'email_notifications_enabled', coalesce((public.setting('email_notifications_enabled') #>> '{}')::boolean, false),
+    'require_google_login', coalesce((public.setting('require_google_login') #>> '{}')::boolean, false),
     'ordering_guidelines', coalesce(public.setting('ordering_guidelines'), '[]'::jsonb)
   );
 end $$;
@@ -654,10 +682,20 @@ declare
   v_order_id uuid := gen_random_uuid();
   v_order_number text;
   v_token text;
+  -- Signed-in customer. app_metadata is written only by Supabase Auth, so it can't be faked.
+  v_user uuid := auth.uid();
+  v_meta jsonb := coalesce(auth.jwt() -> 'user_metadata', '{}'::jsonb);
+  v_google boolean := coalesce((auth.jwt() -> 'app_metadata' -> 'providers') ? 'google', false)
+                        or coalesce(auth.jwt() -> 'app_metadata' ->> 'provider' = 'google', false);
 begin
   -- Anti-spam honeypot: real customers never fill this hidden field.
   if coalesce(payload->>'website', '') <> '' then
     raise exception 'We could not place your order. Please try again.';
+  end if;
+
+  -- Anti-scam: Admin → Settings → Require Google account at checkout.
+  if not v_google and coalesce((public.setting('require_google_login') #>> '{}')::boolean, false) then
+    raise exception 'Please sign in with your Google account before placing your order.';
   end if;
 
   if coalesce((payload->>'agree_terms')::boolean, false) is not true then
@@ -724,6 +762,16 @@ begin
   where phone = v_phone and (created_at at time zone 'Asia/Manila')::date = v_now::date;
   if v_count >= v_limit then
     raise exception 'This phone number has reached the limit of % orders today. Please try again tomorrow or contact us.', v_limit;
+  end if;
+  -- The same daily limit per Google account, so switching phone numbers doesn't get around it.
+  if v_google then
+    perform pg_advisory_xact_lock(hashtext('mgl_place_order_user:' || v_user::text));
+    select count(*) into v_count
+    from public.orders
+    where customer_user_id = v_user and (created_at at time zone 'Asia/Manila')::date = v_now::date;
+    if v_count >= v_limit then
+      raise exception 'This Google account has reached the limit of % orders today. Please try again tomorrow or contact us.', v_limit;
+    end if;
   end if;
 
   -- Items: every price is re-read from the database. Client prices are ignored.
@@ -877,12 +925,16 @@ begin
     id, order_number, tracking_token, device_id, customer_name, phone, email,
     address, barangay, city, landmark, delivery_date, delivery_slot, payment_method,
     payment_status, order_status, gcash_reference, gcash_proof_path, subtotal, delivery_fee,
-    total, customer_notes
+    total, customer_notes, customer_user_id, google_name, google_email, google_picture
   ) values (
     v_order_id, v_order_number, v_token, v_device, v_name, v_phone, v_email,
     v_address, v_barangay, v_city, v_landmark, v_date, v_slot, v_method_text::public.payment_method,
     case when v_method_text = 'cod' then 'cod_unpaid' else 'pending_verification' end::public.payment_status,
-    'processing', v_ref, v_proof, v_subtotal, 0, v_subtotal, v_notes
+    'processing', v_ref, v_proof, v_subtotal, 0, v_subtotal, v_notes,
+    case when v_google then v_user end,
+    case when v_google then nullif(left(btrim(coalesce(v_meta->>'full_name', v_meta->>'name', '')), 200), '') end,
+    case when v_google then nullif(left(lower(btrim(coalesce(auth.jwt() ->> 'email', v_meta->>'email', ''))), 200), '') end,
+    case when v_google then nullif(left(btrim(coalesce(v_meta->>'avatar_url', v_meta->>'picture', '')), 1000), '') end
   );
 
   insert into public.order_items (

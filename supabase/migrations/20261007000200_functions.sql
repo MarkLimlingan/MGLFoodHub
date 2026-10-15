@@ -170,6 +170,7 @@ begin
     ),
     'delivery_fee_note', coalesce(public.setting('delivery_fee_note') #>> '{}', ''),
     'email_notifications_enabled', coalesce((public.setting('email_notifications_enabled') #>> '{}')::boolean, false),
+    'require_google_login', coalesce((public.setting('require_google_login') #>> '{}')::boolean, false),
     'ordering_guidelines', coalesce(public.setting('ordering_guidelines'), '[]'::jsonb)
   );
 end $$;
@@ -228,10 +229,20 @@ declare
   v_order_id uuid := gen_random_uuid();
   v_order_number text;
   v_token text;
+  -- Signed-in customer. app_metadata is written only by Supabase Auth, so it can't be faked.
+  v_user uuid := auth.uid();
+  v_meta jsonb := coalesce(auth.jwt() -> 'user_metadata', '{}'::jsonb);
+  v_google boolean := coalesce((auth.jwt() -> 'app_metadata' -> 'providers') ? 'google', false)
+                        or coalesce(auth.jwt() -> 'app_metadata' ->> 'provider' = 'google', false);
 begin
   -- Anti-spam honeypot: real customers never fill this hidden field.
   if coalesce(payload->>'website', '') <> '' then
     raise exception 'We could not place your order. Please try again.';
+  end if;
+
+  -- Anti-scam: Admin → Settings → Require Google account at checkout.
+  if not v_google and coalesce((public.setting('require_google_login') #>> '{}')::boolean, false) then
+    raise exception 'Please sign in with your Google account before placing your order.';
   end if;
 
   if coalesce((payload->>'agree_terms')::boolean, false) is not true then
@@ -298,6 +309,16 @@ begin
   where phone = v_phone and (created_at at time zone 'Asia/Manila')::date = v_now::date;
   if v_count >= v_limit then
     raise exception 'This phone number has reached the limit of % orders today. Please try again tomorrow or contact us.', v_limit;
+  end if;
+  -- The same daily limit per Google account, so switching phone numbers doesn't get around it.
+  if v_google then
+    perform pg_advisory_xact_lock(hashtext('mgl_place_order_user:' || v_user::text));
+    select count(*) into v_count
+    from public.orders
+    where customer_user_id = v_user and (created_at at time zone 'Asia/Manila')::date = v_now::date;
+    if v_count >= v_limit then
+      raise exception 'This Google account has reached the limit of % orders today. Please try again tomorrow or contact us.', v_limit;
+    end if;
   end if;
 
   -- Items: every price is re-read from the database. Client prices are ignored.
@@ -451,12 +472,16 @@ begin
     id, order_number, tracking_token, device_id, customer_name, phone, email,
     address, barangay, city, landmark, delivery_date, delivery_slot, payment_method,
     payment_status, order_status, gcash_reference, gcash_proof_path, subtotal, delivery_fee,
-    total, customer_notes
+    total, customer_notes, customer_user_id, google_name, google_email, google_picture
   ) values (
     v_order_id, v_order_number, v_token, v_device, v_name, v_phone, v_email,
     v_address, v_barangay, v_city, v_landmark, v_date, v_slot, v_method_text::public.payment_method,
     case when v_method_text = 'cod' then 'cod_unpaid' else 'pending_verification' end::public.payment_status,
-    'processing', v_ref, v_proof, v_subtotal, 0, v_subtotal, v_notes
+    'processing', v_ref, v_proof, v_subtotal, 0, v_subtotal, v_notes,
+    case when v_google then v_user end,
+    case when v_google then nullif(left(btrim(coalesce(v_meta->>'full_name', v_meta->>'name', '')), 200), '') end,
+    case when v_google then nullif(left(lower(btrim(coalesce(auth.jwt() ->> 'email', v_meta->>'email', ''))), 200), '') end,
+    case when v_google then nullif(left(btrim(coalesce(v_meta->>'avatar_url', v_meta->>'picture', '')), 1000), '') end
   );
 
   insert into public.order_items (

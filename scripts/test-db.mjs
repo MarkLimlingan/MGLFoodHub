@@ -87,13 +87,19 @@ for (const file of readdirSync(migrationsDir).filter((f) => f.endsWith('.sql')).
 }
 console.log('re-applied all migrations (idempotent)')
 
-const asRole = async (role, sub = null, email = null) => {
+const asRole = async (role, sub = null, email = null, claims = {}) => {
   await pg.exec(`reset role;`)
   await pg.query(`select set_config('request.jwt.claims', $1, false)`, [
-    sub ? JSON.stringify({ sub, email, role }) : '',
+    sub ? JSON.stringify({ sub, email, role, ...claims }) : '',
   ])
   await pg.exec(`set role ${role};`)
 }
+// A customer signed in with Google, as Supabase Auth puts it in the access token.
+const asGoogle = (sub, name, email) =>
+  asRole('authenticated', sub, email, {
+    app_metadata: { provider: 'google', providers: ['google'] },
+    user_metadata: { full_name: name, email, avatar_url: 'https://lh3.googleusercontent.com/a/photo' },
+  })
 const asSuper = () => pg.exec('reset role;')
 
 // ---------------------------------------------------------------------
@@ -261,6 +267,14 @@ const r5 = (await place({ ...base, phone: '09170000003', payment_method: 'gcash'
 const o5 = (await pg.query('select get_order_by_token($1) as o', [r5.tracking_token])).rows[0].o
 ok(o5.payment_status === 'pending_verification' && o5.gcash_reference === '1234567890', 'GCash order starts as pending_verification')
 
+// Cash on Delivery: orders up to ₱2,000 only (Special Okoy is ₱120)
+await expectError(pg, 'select place_order($1::jsonb)', [JSON.stringify({ ...base, phone: '09170000010', items: [{ variant_id: okoy, quantity: 17 }] })], 'up to ₱2,000', 'COD over ₱2,000 is rejected (17 × ₱120 = ₱2,040)')
+const rCod = (await place({ ...base, phone: '09170000010', items: [{ variant_id: okoy, quantity: 16 }] })).rows[0].r
+ok(!!rCod.order_number, 'COD up to ₱2,000 is accepted (16 × ₱120 = ₱1,920)')
+const rBig = (await place({ ...base, phone: '09170000010', payment_method: 'gcash', gcash_reference: '1234 567 890', gcash_proof_path: 'proofs/device-a/proof1.png', items: [{ variant_id: okoy, quantity: 17 }] })).rows[0].r
+ok(!!rBig.order_number, 'GCash over ₱2,000 is accepted')
+ok(info.ordering_guidelines.some((g) => g.includes('COD') && g.includes('₱2,000')), 'guidelines say COD is for orders up to ₱2,000')
+
 // ---------------------------------------------------------------------
 console.log('\nAdmin')
 await asSuper()
@@ -385,6 +399,40 @@ await expectError(pg, 'select place_order($1::jsonb)', [JSON.stringify({ ...base
 await asSuper()
 const sent = (await pg.query(`select count(*)::int n from realtime.sent where topic = 'order:' || $1 and private = false`, [r1.tracking_token])).rows[0].n
 ok(sent >= 6, `realtime ping sent on the order's token channel (${sent} pings)`)
+
+// ---------------------------------------------------------------------
+console.log('\nGoogle (Gmail) verification')
+const gUser = (await pg.query(`insert into auth.users (email) values ('juan@gmail.com') returning id`)).rows[0].id
+const emailUser = (await pg.query(`insert into auth.users (email) values ('sneaky@x.ph') returning id`)).rows[0].id
+const gOrder = (phone) => place({ ...base, phone, items: [{ variant_id: hazel, quantity: 1 }] })
+const order = (phone) => ['select place_order($1::jsonb)', [JSON.stringify({ ...base, phone, items: [{ variant_id: hazel, quantity: 1 }] })]]
+ok((await pg.query(`select value from settings where key = 'require_google_login'`)).rows[0].value === false, 'Google requirement starts off')
+ok((await pg.query(`select count(*)::int n from settings where key = 'require_facebook_login'`)).rows[0].n === 0, 'old Facebook setting is removed')
+ok((await pg.query(`select count(*)::int n from information_schema.columns where table_name = 'orders' and column_name like 'facebook%'`)).rows[0].n === 0, 'old Facebook columns are removed')
+await pg.query(`update settings set value = 'true' where key = 'require_google_login'`)
+await asRole('anon')
+ok((await pg.query('select get_checkout_info() as i')).rows[0].i.require_google_login === true, 'checkout info tells the site Google is required')
+await expectError(pg, ...order('09170000020'), 'sign in with your Google', 'guest order blocked once Google is required')
+await asRole('authenticated', emailUser, 'sneaky@x.ph', { app_metadata: { provider: 'email', providers: ['email'] } })
+await expectError(pg, ...order('09170000020'), 'sign in with your Google', 'an email sign up cannot skip Google')
+await asRole('authenticated', emailUser, 'sneaky@x.ph', { app_metadata: { provider: 'facebook', providers: ['facebook'] } })
+await expectError(pg, ...order('09170000020'), 'sign in with your Google', 'a Facebook login no longer counts')
+await asRole('authenticated', emailUser, 'sneaky@x.ph', { user_metadata: { providers: ['google'] } })
+await expectError(pg, ...order('09170000020'), 'sign in with your Google', 'faking Google in user_metadata does not work')
+await asGoogle(gUser, 'Juan Dela Cruz', 'juan@gmail.com')
+const rg = (await gOrder('09170000020')).rows[0].r
+ok(!!rg.order_number, 'Google-verified customer can order')
+await asSuper()
+const gRow = (await pg.query('select customer_user_id, google_name, google_email, google_picture from orders where order_number = $1', [rg.order_number])).rows[0]
+ok(gRow.customer_user_id === gUser && gRow.google_name === 'Juan Dela Cruz' && gRow.google_email === 'juan@gmail.com' && gRow.google_picture.includes('googleusercontent'), 'order saves the Google account, name, Gmail and photo')
+await pg.query(`update settings set value = '2' where key = 'max_orders_per_phone_per_day'`)
+await asGoogle(gUser, 'Juan Dela Cruz', 'juan@gmail.com')
+await gOrder('09170000021')
+await expectError(pg, ...order('09170000022'), 'This Google account has reached', 'daily limit per Google account, even with new phone numbers')
+ok((await pg.query('select count(*)::int n from orders')).rows[0].n === 0, 'a Google customer cannot read anyone\'s orders, not even their own')
+await asSuper()
+await pg.query(`update settings set value = '5' where key = 'max_orders_per_phone_per_day'`)
+await pg.query(`update settings set value = 'false' where key = 'require_google_login'`)
 
 console.log(`\n${passed} passed, ${failed} failed`)
 process.exit(failed ? 1 : 0)

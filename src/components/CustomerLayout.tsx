@@ -208,9 +208,13 @@ function Footer() {
           <p className="max-w-3xl text-xs leading-relaxed text-white/45">{DELIVERY_DISCLAIMER}</p>
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-white/55">
             <span>© {new Date().getFullYear()} MGL Food Hub. All rights reserved.</span>
-            <button type="button" onClick={() => openGuidelines(true)} className="hover:text-brand">
-              Ordering guidelines
-            </button>
+            <span className="flex flex-wrap gap-x-4 gap-y-1">
+              <Link to="/privacy" className="hover:text-brand">Privacy Policy</Link>
+              <Link to="/terms" className="hover:text-brand">Terms of Service</Link>
+              <button type="button" onClick={() => openGuidelines(true)} className="hover:text-brand">
+                Ordering guidelines
+              </button>
+            </span>
           </div>
         </div>
       </div>

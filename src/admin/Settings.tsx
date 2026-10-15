@@ -31,6 +31,7 @@ interface SettingsForm extends Record<AccountKey, string> {
   email_notifications_enabled: boolean
   max_orders_per_phone_per_day: number
   ordering_guidelines: string[]
+  require_google_login: boolean
 }
 
 const DEFAULTS: SettingsForm = {
@@ -42,6 +43,7 @@ const DEFAULTS: SettingsForm = {
   email_notifications_enabled: false,
   max_orders_per_phone_per_day: 5,
   ordering_guidelines: DEFAULT_GUIDELINES,
+  require_google_login: false,
 }
 
 export default function Settings() {
@@ -169,7 +171,7 @@ export default function Settings() {
             <Field label="Max days in advance" htmlFor="maxdays">
               <Input id="maxdays" type="number" min={1} max={365} value={form.max_days_ahead} onChange={(e) => set('max_days_ahead', Number(e.target.value))} className="w-32" />
             </Field>
-            <Field label="Max orders per phone number per day" htmlFor="maxorders" hint="Spam protection limit.">
+            <Field label="Max orders per phone number per day" htmlFor="maxorders" hint="Spam protection limit. Also applies to each Google account.">
               <Input id="maxorders" type="number" min={1} max={50} value={form.max_orders_per_phone_per_day} onChange={(e) => set('max_orders_per_phone_per_day', Number(e.target.value))} className="w-32" />
             </Field>
             <Field label="Delivery fee note" htmlFor="feenote">
@@ -181,6 +183,15 @@ export default function Settings() {
                 <span className="block text-xs text-navy/55">Send customers their tracking link by email (needs the Resend edge function).</span>
               </span>
               <Switch checked={form.email_notifications_enabled} onCheckedChange={(v) => set('email_notifications_enabled', v)} />
+            </label>
+            <label className="flex items-center justify-between gap-3 rounded-xl bg-cream px-3 py-2.5">
+              <span>
+                <span className="block text-sm font-semibold">Require Google account at checkout</span>
+                <span className="block text-xs text-navy/55">
+                  Customers sign in with Google (Gmail) before they can order, to stop fake and scam orders. Turn on only after Google sign in is set up and tested.
+                </span>
+              </span>
+              <Switch checked={form.require_google_login} onCheckedChange={(v) => set('require_google_login', v)} />
             </label>
           </div>
         </Panel>

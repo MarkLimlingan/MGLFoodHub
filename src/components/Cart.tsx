@@ -8,6 +8,7 @@ import { Button } from './ui/button'
 import { QuantityStepper } from './ui/controls'
 import { Dialog, SheetContent } from './ui/dialog'
 import { EmptyState, SmartImage } from './common'
+import { CartCheckoutButton } from './GoogleLink'
 
 export const useCartUI = create<{ open: boolean; setOpen: (o: boolean) => void }>((set) => ({
   open: false,
@@ -159,17 +160,15 @@ export function CartSheet() {
               <span className="text-navy/65">Delivery Fee</span>
               <span className="text-navy/55">To be confirmed</span>
             </div>
-            <Button
-              size="lg"
-              className="w-full"
+            <CartCheckoutButton
               disabled={view.hasIssues}
-              onClick={() => {
+              onCheckout={() => {
                 setOpen(false)
                 navigate('/checkout')
               }}
             >
               Proceed to Checkout · {peso(view.subtotalCents / 100)} <ArrowRight />
-            </Button>
+            </CartCheckoutButton>
             {view.hasIssues && <p className="text-center text-xs text-brand-red">Remove unavailable items to continue.</p>}
             <p className="text-center text-[11px] leading-snug text-navy/50">{FEE_NOTE}</p>
           </div>

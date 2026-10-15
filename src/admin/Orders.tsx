@@ -104,9 +104,9 @@ export default function Orders() {
     const list = (data ?? []) as unknown as Full[]
     downloadCsv(
       `mgl-orders-${new Date().toISOString().slice(0, 10)}.csv`,
-      ['Order #', 'Placed', 'Delivery date', 'Slot', 'Customer', 'Phone', 'Email', 'Address', 'Barangay', 'City', 'Landmark', 'Payment', 'Payment status', 'Order status', 'Payment ref', 'Items', 'Food subtotal', 'Delivery fee', 'Total', 'Customer notes', 'Admin notes', 'Cancel reason'],
+      ['Order #', 'Placed', 'Delivery date', 'Slot', 'Customer', 'Phone', 'Email', 'Google account', 'Address', 'Barangay', 'City', 'Landmark', 'Payment', 'Payment status', 'Order status', 'Payment ref', 'Items', 'Food subtotal', 'Delivery fee', 'Total', 'Customer notes', 'Admin notes', 'Cancel reason'],
       list.map((o) => [
-        o.order_number, formatDateTime(o.created_at), o.delivery_date, slotLabel(o.delivery_slot), o.customer_name, o.phone, o.email,
+        o.order_number, formatDateTime(o.created_at), o.delivery_date, slotLabel(o.delivery_slot), o.customer_name, o.phone, o.email, o.google_email,
         o.address, o.barangay, o.city, o.landmark, PAYMENT_METHOD_LABEL[o.payment_method], PAYMENT_STATUS_LABEL[o.payment_status], ORDER_STATUS_LABEL[o.order_status],
         o.gcash_reference,
         o.order_items.map((i) => `${i.quantity}x ${i.store_name_snapshot}: ${i.product_name_snapshot}${i.variant_label_snapshot !== 'Regular' ? ` (${i.variant_label_snapshot})` : ''}${i.options_snapshot.length ? ` [${i.options_snapshot.map((x) => x.choice === 'Yes' ? x.group : x.choice).join(', ')}]` : ''}`).join('; '),

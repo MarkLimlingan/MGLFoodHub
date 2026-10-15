@@ -141,6 +141,15 @@ create index if not exists orders_created_at_idx on public.orders(created_at des
 create index if not exists orders_phone_idx on public.orders(phone);
 -- Databases created while checkout still required a social media account.
 alter table public.orders alter column social_media drop not null;
+-- Google account that placed the order (Admin → Settings → Require Google account at checkout).
+alter table public.orders add column if not exists customer_user_id uuid references auth.users(id) on delete set null;
+alter table public.orders add column if not exists google_name text;
+alter table public.orders add column if not exists google_email text;
+alter table public.orders add column if not exists google_picture text;
+create index if not exists orders_customer_user_idx on public.orders(customer_user_id);
+-- Facebook verification was replaced by Google before it was ever switched on.
+alter table public.orders drop column if exists facebook_name;
+alter table public.orders drop column if exists facebook_picture;
 
 create table if not exists public.order_items (
   id uuid primary key default gen_random_uuid(),
@@ -213,22 +222,25 @@ insert into public.settings (key, value) values
   ('delivery_fee_note', '"Delivery fee will be confirmed by our team (higher fees may apply for long distance deliveries)."'::jsonb),
   ('email_notifications_enabled', 'false'::jsonb),
   ('max_orders_per_phone_per_day', '5'::jsonb),
+  ('require_google_login', 'false'::jsonb),
   ('ordering_guidelines', jsonb_build_array(
     'We deliver via Grab within Metro Manila from 12:00 PM to 8:00 PM.',
-    'Pay by Cash on Delivery (COD) or online via GCash, MariBank or GoTyme.',
+    'Pay by Cash on Delivery (COD) for orders up to ₱2,000, or online via GCash, MariBank or GoTyme.',
     'Orders are for booking (scheduled delivery) only. Same day delivery is not available.',
     'We will confirm your order by text or call.',
     'Menu prices are VAT inclusive and may vary or be subject to change by the merchant. Higher delivery fees may also apply for long distance deliveries.',
     'You can order from all merchants in the app and pay only one delivery fee.'
   ))
 on conflict (key) do nothing;
+delete from public.settings where key = 'require_facebook_login'; -- replaced by require_google_login
 
 -- Existing databases: update the default guidelines that changed (custom ones are kept).
 update public.settings
    set value = (
      select coalesce(jsonb_agg(case g
          when 'We deliver via Grab within Metro Manila from 12:00 PM to 6:00 PM.' then 'We deliver via Grab within Metro Manila from 12:00 PM to 8:00 PM.'
-         when 'Pay by Cash on Delivery (COD) or online (GCash).' then 'Pay by Cash on Delivery (COD) or online via GCash, MariBank or GoTyme.'
+         when 'Pay by Cash on Delivery (COD) or online (GCash).' then 'Pay by Cash on Delivery (COD) for orders up to ₱2,000, or online via GCash, MariBank or GoTyme.'
+         when 'Pay by Cash on Delivery (COD) or online via GCash, MariBank or GoTyme.' then 'Pay by Cash on Delivery (COD) for orders up to ₱2,000, or online via GCash, MariBank or GoTyme.'
          when 'Orders are for booking (scheduled delivery) only. Same-day delivery is not available.' then 'Orders are for booking (scheduled delivery) only. Same day delivery is not available.'
          else g end order by n), '[]'::jsonb)
      from jsonb_array_elements_text(value) with ordinality as t(g, n))
@@ -284,6 +296,21 @@ create trigger product_variants_price_lock before update on public.product_varia
 drop trigger if exists option_choices_price_lock on public.option_choices;
 create trigger option_choices_price_lock before update on public.option_choices
   for each row execute function public.prevent_price_change();
+
+-- Cash on Delivery is only for orders up to ₱2,000 (checkout blocks it too).
+create or replace function public.enforce_cod_limit()
+returns trigger language plpgsql as $$
+begin
+  if new.payment_method = 'cod' and new.subtotal > 2000 then
+    raise exception 'Cash on Delivery is only for orders up to ₱2,000. Please pay online via GCash, MariBank or GoTyme.'
+      using errcode = 'check_violation';
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists orders_cod_limit on public.orders;
+create trigger orders_cod_limit before insert on public.orders
+  for each row execute function public.enforce_cod_limit();
 
 -- ---------------------------------------------------------------------
 -- Grants (column-level: admins may only touch the columns they are allowed to)

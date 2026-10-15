@@ -4,6 +4,7 @@ import { useCartView } from '@/hooks/useCatalog'
 import { peso } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { CartContents } from '@/components/Cart'
+import { CartCheckoutButton } from '@/components/GoogleLink'
 import { PageShell } from '@/components/CustomerLayout'
 
 export default function CartPage() {
@@ -17,9 +18,11 @@ export default function CartPage() {
           <Button variant="outline" asChild>
             <Link to="/">Add more items</Link>
           </Button>
-          <Button size="lg" disabled={view.hasIssues} onClick={() => navigate('/checkout')}>
-            Checkout · {peso(view.subtotalCents / 100)}
-          </Button>
+          <div className="sm:min-w-72">
+            <CartCheckoutButton disabled={view.hasIssues} onCheckout={() => navigate('/checkout')}>
+              Checkout · {peso(view.subtotalCents / 100)}
+            </CartCheckoutButton>
+          </div>
         </div>
       )}
     </PageShell>

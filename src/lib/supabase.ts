@@ -6,8 +6,9 @@ const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
 export const supabaseConfigured = Boolean(url && key)
 
 export const supabase = createClient(url || 'http://localhost:54321', key || 'missing-anon-key', {
-  // Only admins ever sign in; customers stay anonymous.
-  auth: { persistSession: true, autoRefreshToken: true, storageKey: 'mgl_admin_auth' },
+  // Admins sign in with email; customers sign in with Google only when checkout requires it.
+  // PKCE: Google sends back a one-time code instead of putting tokens in the URL.
+  auth: { persistSession: true, autoRefreshToken: true, storageKey: 'mgl_admin_auth', flowType: 'pkce' },
   // Heartbeats from a Web Worker: browsers throttle timers in background tabs, which
   // otherwise lets the socket time out while the admin waits on another tab for orders.
   realtime: { worker: true },
