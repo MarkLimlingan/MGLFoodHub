@@ -141,11 +141,13 @@ create index if not exists orders_created_at_idx on public.orders(created_at des
 create index if not exists orders_phone_idx on public.orders(phone);
 -- Databases created while checkout still required a social media account.
 alter table public.orders alter column social_media drop not null;
--- Google account that placed the order (Admin → Settings → Require Google account at checkout).
+-- Google or Facebook account that placed the order (Admin → Settings → Require Google account at checkout).
+-- The google_* columns hold the name, email and photo from either one; verified_with says which.
 alter table public.orders add column if not exists customer_user_id uuid references auth.users(id) on delete set null;
 alter table public.orders add column if not exists google_name text;
 alter table public.orders add column if not exists google_email text;
 alter table public.orders add column if not exists google_picture text;
+alter table public.orders add column if not exists verified_with text check (verified_with in ('google', 'facebook'));
 create index if not exists orders_customer_user_idx on public.orders(customer_user_id);
 -- Facebook verification was replaced by Google before it was ever switched on.
 alter table public.orders drop column if exists facebook_name;

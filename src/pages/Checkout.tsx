@@ -23,9 +23,9 @@ import { Input, Textarea } from '@/components/ui/input'
 import { Checkbox, Chip, RadioCard, RadioGroup, Skeleton } from '@/components/ui/controls'
 import { Disclaimer, EmptyState, ErrorBanner, MessageOwner } from '@/components/common'
 import { CartTotals, FEE_NOTE } from '@/components/Cart'
-import { GoogleGate, GoogleLinked } from '@/components/GoogleLink'
+import { SignInGate, SignedInAs } from '@/components/GoogleLink'
 import { DEFAULT_GUIDELINES } from '@/components/OrderingGuidelines'
-import { devGooglePreview, useGoogleLink } from '@/lib/google'
+import { devSignInPreview, useAccountLink } from '@/lib/signin'
 
 interface FormState {
   customer_name: string
@@ -97,20 +97,20 @@ export default function Checkout() {
   const submitting = useRef(false)
   const placed = useRef(false)
 
-  // Anti-scam: when the admin requires it, customers sign in with Google (Gmail) before they can order.
-  const google = useGoogleLink()
-  const requireGoogle = info?.require_google_login === true || devGooglePreview()
-  const needsGoogle = requireGoogle && !google.profile
+  // Anti-scam: when the admin requires it, customers sign in with Google or Facebook before they can order.
+  const signIn = useAccountLink()
+  const requireSignIn = info?.require_google_login === true || devSignInPreview()
+  const needsSignIn = requireSignIn && !signIn.profile
 
   useEffect(() => {
-    const p = google.profile
+    const p = signIn.profile
     if (!p) return
     setForm((f) => ({
       ...f,
       customer_name: f.customer_name.trim() ? f.customer_name : p.name,
       email: f.email.trim() || !p.email ? f.email : p.email,
     }))
-  }, [google.profile?.name, google.profile?.email]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [signIn.profile?.name, signIn.profile?.email]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadInfo = async () => {
     setInfoError(null)
@@ -299,7 +299,7 @@ export default function Checkout() {
   const total = view.subtotalCents / 100
   const account = onlineMethod ? paymentAccount(info, onlineMethod) : null
   const methodLabel = onlineMethod ? PAYMENT_METHOD_LABEL[onlineMethod] : ''
-  const blockedCheckout = view.hasIssues || !!slotInfo.conflict || needsGoogle
+  const blockedCheckout = view.hasIssues || !!slotInfo.conflict || needsSignIn
   const stepsDone: [boolean, boolean, boolean] = [
     form.customer_name.trim().length >= 2 && !!normalizePhone(form.phone) && isValidEmail(form.email) &&
       form.address.trim().length >= 4 && form.barangay.trim().length >= 2 && form.city.trim().length >= 2,
@@ -311,7 +311,7 @@ export default function Checkout() {
     <div className="mx-auto max-w-7xl px-3 py-8 sm:px-4 lg:px-6 sm:py-12">
       <h1 className="font-display text-3xl font-bold sm:text-4xl">Checkout</h1>
       <p className="mt-1.5 text-sm text-navy/70">
-        Scheduled delivery only. The earliest is tomorrow. {requireGoogle ? 'Orders are verified with Google.' : 'No account needed.'}
+        Scheduled delivery only. The earliest is tomorrow. {requireSignIn ? 'Orders are verified with Google or Facebook.' : 'No account needed.'}
       </p>
       <CheckoutSteps done={stepsDone} />
 
@@ -332,11 +332,11 @@ export default function Checkout() {
             </label>
           </div>
 
-          {requireGoogle && !google.ready && <Skeleton className="h-40 rounded-2xl" />}
-          {needsGoogle && google.ready && <GoogleGate onLink={google.link} error={google.error} />}
-          {requireGoogle && google.profile && <GoogleLinked profile={google.profile} onUnlink={google.unlink} />}
+          {requireSignIn && !signIn.ready && <Skeleton className="h-40 rounded-2xl" />}
+          {needsSignIn && signIn.ready && <SignInGate onLink={signIn.link} error={signIn.error} />}
+          {requireSignIn && signIn.profile && <SignedInAs profile={signIn.profile} onUnlink={signIn.unlink} />}
 
-          <div hidden={needsGoogle} className="space-y-5">
+          <div hidden={needsSignIn} className="space-y-5">
           <Section step={1} icon={<User />} title="Your details">
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="Full Name" htmlFor="name" required error={errors.customer_name} className="sm:col-span-2">

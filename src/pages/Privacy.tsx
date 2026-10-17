@@ -4,7 +4,8 @@ import { PageShell } from '@/components/CustomerLayout'
 import { OWNER_MESSAGE_URL } from '@/components/common'
 import { LegalSection, MessageLink } from './Terms'
 
-// Linked from the Google sign in settings (OAuth consent screen) as the privacy policy. #delete-data explains how to delete data.
+// Linked from the Google sign in settings (OAuth consent screen) and the Facebook app settings as the privacy policy.
+// #delete-data is the data deletion instructions page for both.
 export default function Privacy() {
   useEffect(() => {
     document.title = 'Privacy Policy · MGL Food Hub'
@@ -24,6 +25,10 @@ export default function Privacy() {
             <li>
               If you sign in with Google: your name, Gmail address and profile photo from your Google account. We never see your Google
               password and we can't read your emails.
+            </li>
+            <li>
+              If you sign in with Facebook: your name, email address and profile photo from your Facebook account. We never see your
+              Facebook password, posts, friends or messages.
             </li>
             <li>On your phone: your cart and the tracking links of your orders are saved in your browser only.</li>
           </ul>
@@ -65,11 +70,12 @@ export default function Privacy() {
               <MessageLink>Message us on Facebook</MessageLink> and say you want your data deleted.
             </li>
             <li>Include the name and mobile number you used on your orders.</li>
-            <li>We delete your personal information and the Google account linked to your orders, then message you when it's done.</li>
+            <li>We delete your personal information and the Google or Facebook account linked to your orders, then message you when it's done.</li>
           </ol>
           <p className="mt-3">
-            We may keep records the law requires us to keep. You can also remove MGL Food Hub from your Google account: in your Google Account, open
-            Security, then Your connections to third party apps and services, and remove MGL Food Hub.
+            We may keep records the law requires us to keep. You can also remove MGL Food Hub from your Google or Facebook account. In your Google Account, open
+            Security, then Your connections to third party apps and services, and remove MGL Food Hub. On Facebook, open Settings and privacy,
+            then Settings, then Apps and websites, and remove MGL Food Hub.
           </p>
         </LegalSection>
 

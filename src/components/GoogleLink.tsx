@@ -1,6 +1,9 @@
 import { useState, type ReactNode } from 'react'
 import { ShieldCheck } from 'lucide-react'
-import { useGoogleLink, useGoogleRequired, type GoogleProfile } from '@/lib/google'
+import {
+  PROVIDER_NAME, SIGN_IN_PROVIDERS, useAccountLink, useSignInRequired, type AccountProfile, type SignInProvider,
+} from '@/lib/signin'
+import { installPlatform } from '@/lib/install'
 import { cn } from '@/lib/utils'
 import { ErrorBanner, SmartImage } from './common'
 import { Button } from './ui/button'
@@ -17,9 +20,26 @@ export function GoogleLogo({ className }: { className?: string }) {
   )
 }
 
-/** "Continue with Google" in Google's own light style: white, grey border, four-colour G. */
-export function GoogleButton({ onLink, disabled, className }: { onLink: () => Promise<void>; disabled?: boolean; className?: string }) {
+/** Facebook's round "f": blue on light backgrounds, white on the blue button. */
+export function FacebookLogo({ className, color = '#1877F2' }: { className?: string; color?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className={cn('size-5', className)}>
+      <path
+        fill={color}
+        d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.413c0-3.025 1.792-4.697 4.533-4.697 1.312 0 2.686.236 2.686.236v2.971H15.83c-1.49 0-1.955.93-1.955 1.886v2.265h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"
+      />
+    </svg>
+  )
+}
+
+export function ProviderLogo({ provider, className }: { provider: SignInProvider; className?: string }) {
+  return provider === 'facebook' ? <FacebookLogo className={className} /> : <GoogleLogo className={className} />
+}
+
+/** "Continue with Google" in Google's light style, or "Continue with Facebook" in Facebook blue. */
+function ProviderButton({ provider, onLink, disabled }: { provider: SignInProvider; onLink: () => Promise<void>; disabled?: boolean }) {
   const [busy, setBusy] = useState(false)
+  const name = PROVIDER_NAME[provider]
   return (
     <button
       type="button"
@@ -30,47 +50,69 @@ export function GoogleButton({ onLink, disabled, className }: { onLink: () => Pr
         setBusy(false)
       }}
       className={cn(
-        'flex min-h-12 w-full items-center justify-center gap-3 rounded-full border border-[#747775] bg-white px-5 font-semibold text-[#1F1F1F] transition hover:bg-[#F8F9FA] active:scale-[0.98] disabled:opacity-60',
-        className,
+        'flex min-h-12 w-full items-center justify-center gap-3 rounded-full px-5 font-semibold transition active:scale-[0.98] disabled:opacity-60',
+        provider === 'facebook'
+          ? 'bg-[#1877F2] text-white hover:bg-[#166FE5]'
+          : 'border border-[#747775] bg-white text-[#1F1F1F] hover:bg-[#F8F9FA]',
       )}
     >
-      <GoogleLogo />
-      {busy ? 'Opening Google…' : 'Continue with Google'}
+      {provider === 'facebook' ? <FacebookLogo color="#ffffff" /> : <GoogleLogo />}
+      {busy ? `Opening ${name}…` : `Continue with ${name}`}
     </button>
   )
 }
 
-/** Shown instead of the checkout form until the customer links Google. */
-export function GoogleGate({ onLink, error }: { onLink: () => Promise<void>; error: string | null }) {
+/** Google and Facebook buttons. Google blocks sign in inside Facebook's and Messenger's built-in browser, so Facebook goes first there. */
+export function SignInButtons({ onLink, disabled }: { onLink: (p: SignInProvider) => Promise<void>; disabled?: boolean }) {
+  const inApp = installPlatform() === 'in-app'
+  const ordered = inApp ? [...SIGN_IN_PROVIDERS].reverse() : SIGN_IN_PROVIDERS
+  return (
+    <div className="space-y-2.5">
+      {ordered.map((p) => (
+        <ProviderButton key={p} provider={p} onLink={() => onLink(p)} disabled={disabled} />
+      ))}
+      {inApp && (
+        <p className="text-center text-xs text-navy/70">
+          Google sign in doesn't work inside the Facebook or Messenger app. Use Facebook, or open this page in Chrome or Safari.
+        </p>
+      )}
+    </div>
+  )
+}
+
+/** Shown instead of the checkout form until the customer signs in. */
+export function SignInGate({ onLink, error }: { onLink: (p: SignInProvider) => Promise<void>; error: string | null }) {
   return (
     <section className="surface-card rounded-2xl p-5 sm:p-7">
       <div className="flex items-start gap-3">
-        <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[#4285F4]/10 text-[#4285F4]">
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand-ink">
           <ShieldCheck className="size-5" />
         </span>
         <div className="min-w-0">
-          <h2 className="font-heading text-lg font-bold">Sign in with your Gmail</h2>
+          <h2 className="font-heading text-lg font-bold">Sign in to place your order</h2>
           <p className="mt-1 text-sm text-navy/70">
-            To keep out fake and scam orders, every order is verified with a Google account. We only see your name, Gmail address and profile photo.
-            We never see your password.
+            To keep out fake and scam orders, every order is verified with a Google or Facebook account. We only see your name, email address
+            and profile photo. We never see your password.
           </p>
         </div>
       </div>
       {error && <ErrorBanner className="mt-4">{error}</ErrorBanner>}
-      <GoogleButton onLink={onLink} className="mt-5" />
-      <p className="mt-3 text-center text-xs text-navy/70">You'll come back here after Google. Your cart is saved.</p>
+      <div className="mt-5">
+        <SignInButtons onLink={onLink} />
+      </div>
+      <p className="mt-3 text-center text-xs text-navy/70">You'll come back here after signing in. Your cart is saved.</p>
     </section>
   )
 }
 
 /** Compact "signed in as" row above the checkout form. */
-export function GoogleLinked({ profile, onUnlink }: { profile: GoogleProfile; onUnlink: () => Promise<void> }) {
+export function SignedInAs({ profile, onUnlink }: { profile: AccountProfile; onUnlink: () => Promise<void> }) {
   return (
     <div className="surface-card flex items-center gap-3 rounded-2xl px-4 py-3">
       <SmartImage src={profile.picture} alt="" className="size-10 shrink-0 rounded-full" />
       <div className="min-w-0 flex-1">
         <p className="flex items-center gap-1.5 text-xs font-semibold text-navy/70">
-          <GoogleLogo className="size-3.5" /> Verified with Google
+          <ProviderLogo provider={profile.provider} className="size-3.5" /> Verified with {PROVIDER_NAME[profile.provider]}
         </p>
         <p className="truncate font-semibold">{profile.name}</p>
         {profile.email && <p className="truncate text-xs text-navy/70">{profile.email}</p>}
@@ -83,26 +125,28 @@ export function GoogleLinked({ profile, onUnlink }: { profile: GoogleProfile; on
 }
 
 /**
- * The cart's checkout button. When Google is required and not linked yet, it becomes
- * "Continue with Google", which signs the customer in and lands on checkout.
+ * The cart's checkout button. When sign in is required and the customer hasn't yet, it becomes the
+ * Google (and Facebook) buttons, which sign them in and land on checkout.
  */
 export function CartCheckoutButton({ children, onCheckout, disabled }: { children: ReactNode; onCheckout: () => void; disabled?: boolean }) {
-  const required = useGoogleRequired()
-  const google = useGoogleLink()
+  const required = useSignInRequired()
+  const account = useAccountLink()
 
-  if (required && !google.profile) {
+  if (required && !account.profile) {
     return (
       <div className="space-y-1.5">
-        <GoogleButton onLink={google.link} disabled={disabled || !google.ready} />
-        <p className="text-center text-xs text-navy/70">Sign in with your Gmail to check out. This keeps out fake orders.</p>
+        {account.error && <ErrorBanner className="mb-2.5 text-left">{account.error}</ErrorBanner>}
+        <SignInButtons onLink={account.link} disabled={disabled || !account.ready} />
+        <p className="text-center text-xs text-navy/70">Sign in with Google or Facebook to check out. This keeps out fake orders.</p>
       </div>
     )
   }
   return (
     <div className="space-y-1.5">
-      {required && google.profile && (
+      {required && account.profile && (
         <p className="flex items-center justify-center gap-1.5 text-xs text-navy/70">
-          <GoogleLogo className="size-3.5" /> Signed in as <span className="font-semibold text-navy">{google.profile.email ?? google.profile.name}</span>
+          <ProviderLogo provider={account.profile.provider} className="size-3.5" /> Signed in as{' '}
+          <span className="font-semibold text-navy">{account.profile.email ?? account.profile.name}</span>
         </p>
       )}
       <Button size="lg" className="w-full" disabled={disabled} onClick={onCheckout}>

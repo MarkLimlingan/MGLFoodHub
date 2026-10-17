@@ -147,11 +147,13 @@ create index if not exists orders_created_at_idx on public.orders(created_at des
 create index if not exists orders_phone_idx on public.orders(phone);
 -- Databases created while checkout still required a social media account.
 alter table public.orders alter column social_media drop not null;
--- Google account that placed the order (Admin → Settings → Require Google account at checkout).
+-- Google or Facebook account that placed the order (Admin → Settings → Require Google account at checkout).
+-- The google_* columns hold the name, email and photo from either one; verified_with says which.
 alter table public.orders add column if not exists customer_user_id uuid references auth.users(id) on delete set null;
 alter table public.orders add column if not exists google_name text;
 alter table public.orders add column if not exists google_email text;
 alter table public.orders add column if not exists google_picture text;
+alter table public.orders add column if not exists verified_with text check (verified_with in ('google', 'facebook'));
 create index if not exists orders_customer_user_idx on public.orders(customer_user_id);
 -- Facebook verification was replaced by Google before it was ever switched on.
 alter table public.orders drop column if exists facebook_name;
@@ -685,17 +687,19 @@ declare
   -- Signed-in customer. app_metadata is written only by Supabase Auth, so it can't be faked.
   v_user uuid := auth.uid();
   v_meta jsonb := coalesce(auth.jwt() -> 'user_metadata', '{}'::jsonb);
-  v_google boolean := coalesce((auth.jwt() -> 'app_metadata' -> 'providers') ? 'google', false)
-                        or coalesce(auth.jwt() -> 'app_metadata' ->> 'provider' = 'google', false);
+  v_providers jsonb := coalesce(auth.jwt() -> 'app_metadata' -> 'providers', '[]'::jsonb);
+  v_google boolean := v_providers ? 'google' or coalesce(auth.jwt() -> 'app_metadata' ->> 'provider' = 'google', false);
+  v_facebook boolean := v_providers ? 'facebook' or coalesce(auth.jwt() -> 'app_metadata' ->> 'provider' = 'facebook', false);
+  v_verified boolean := v_google or v_facebook;
 begin
   -- Anti-spam honeypot: real customers never fill this hidden field.
   if coalesce(payload->>'website', '') <> '' then
     raise exception 'We could not place your order. Please try again.';
   end if;
 
-  -- Anti-scam: Admin → Settings → Require Google account at checkout.
-  if not v_google and coalesce((public.setting('require_google_login') #>> '{}')::boolean, false) then
-    raise exception 'Please sign in with your Google account before placing your order.';
+  -- Anti-scam: Admin → Settings → Require Google account at checkout. Google or Facebook both count.
+  if not v_verified and coalesce((public.setting('require_google_login') #>> '{}')::boolean, false) then
+    raise exception 'Please sign in with Google or Facebook before placing your order.';
   end if;
 
   if coalesce((payload->>'agree_terms')::boolean, false) is not true then
@@ -763,14 +767,14 @@ begin
   if v_count >= v_limit then
     raise exception 'This phone number has reached the limit of % orders today. Please try again tomorrow or contact us.', v_limit;
   end if;
-  -- The same daily limit per Google account, so switching phone numbers doesn't get around it.
-  if v_google then
+  -- The same daily limit per Google or Facebook account, so switching phone numbers doesn't get around it.
+  if v_verified then
     perform pg_advisory_xact_lock(hashtext('mgl_place_order_user:' || v_user::text));
     select count(*) into v_count
     from public.orders
     where customer_user_id = v_user and (created_at at time zone 'Asia/Manila')::date = v_now::date;
     if v_count >= v_limit then
-      raise exception 'This Google account has reached the limit of % orders today. Please try again tomorrow or contact us.', v_limit;
+      raise exception 'This account has reached the limit of % orders today. Please try again tomorrow or contact us.', v_limit;
     end if;
   end if;
 
@@ -925,16 +929,22 @@ begin
     id, order_number, tracking_token, device_id, customer_name, phone, email,
     address, barangay, city, landmark, delivery_date, delivery_slot, payment_method,
     payment_status, order_status, gcash_reference, gcash_proof_path, subtotal, delivery_fee,
-    total, customer_notes, customer_user_id, google_name, google_email, google_picture
+    total, customer_notes, customer_user_id, google_name, google_email, google_picture, verified_with
   ) values (
     v_order_id, v_order_number, v_token, v_device, v_name, v_phone, v_email,
     v_address, v_barangay, v_city, v_landmark, v_date, v_slot, v_method_text::public.payment_method,
     case when v_method_text = 'cod' then 'cod_unpaid' else 'pending_verification' end::public.payment_status,
     'processing', v_ref, v_proof, v_subtotal, 0, v_subtotal, v_notes,
-    case when v_google then v_user end,
-    case when v_google then nullif(left(btrim(coalesce(v_meta->>'full_name', v_meta->>'name', '')), 200), '') end,
-    case when v_google then nullif(left(lower(btrim(coalesce(auth.jwt() ->> 'email', v_meta->>'email', ''))), 200), '') end,
-    case when v_google then nullif(left(btrim(coalesce(v_meta->>'avatar_url', v_meta->>'picture', '')), 1000), '') end
+    case when v_verified then v_user end,
+    case when v_verified then nullif(left(btrim(coalesce(v_meta->>'full_name', v_meta->>'name', '')), 200), '') end,
+    case when v_verified then nullif(left(lower(btrim(coalesce(auth.jwt() ->> 'email', v_meta->>'email', ''))), 200), '') end,
+    case when v_verified then nullif(left(btrim(coalesce(v_meta->>'avatar_url', v_meta->>'picture', '')), 1000), '') end,
+    -- Both linked (same email): user_metadata holds the latest sign in, and Google stamps its issuer there.
+    case
+      when v_google and v_facebook then case when coalesce(v_meta->>'iss', '') like '%google%' then 'google' else 'facebook' end
+      when v_facebook then 'facebook'
+      when v_google then 'google'
+    end
   );
 
   insert into public.order_items (

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { create } from 'zustand'
 import { BadgeCheck, Banknote, CalendarClock, Download, PhoneCall, ReceiptText, Store, Truck } from 'lucide-react'
 import { supabase, supabaseConfigured } from '@/lib/supabase'
-import { GOOGLE_RETURN_KEY } from '@/lib/google'
+import { SIGNIN_RETURN_KEY } from '@/lib/signin'
 import { storage } from '@/lib/utils'
 import { useInstallApp } from './InstallApp'
 import { Button } from './ui/button'
@@ -37,11 +37,11 @@ export function OrderingGuidelines() {
   const [items, setItems] = useState<string[]>(DEFAULT_GUIDELINES)
 
   useEffect(() => {
-    // Coming back from signing in with Google is a page load too, but they've already seen it.
+    // Coming back from signing in with Google or Facebook is a page load too, but they've already seen it.
     let returning = false
     try {
-      returning = sessionStorage.getItem(GOOGLE_RETURN_KEY) === '1'
-      sessionStorage.removeItem(GOOGLE_RETURN_KEY)
+      returning = sessionStorage.getItem(SIGNIN_RETURN_KEY) === '1'
+      sessionStorage.removeItem(SIGNIN_RETURN_KEY)
     } catch {
       /* storage blocked: show it */
     }

@@ -98,7 +98,13 @@ const asRole = async (role, sub = null, email = null, claims = {}) => {
 const asGoogle = (sub, name, email) =>
   asRole('authenticated', sub, email, {
     app_metadata: { provider: 'google', providers: ['google'] },
-    user_metadata: { full_name: name, email, avatar_url: 'https://lh3.googleusercontent.com/a/photo' },
+    user_metadata: { full_name: name, email, avatar_url: 'https://lh3.googleusercontent.com/a/photo', iss: 'https://accounts.google.com' },
+  })
+// The same for Facebook.
+const asFacebook = (sub, name, email) =>
+  asRole('authenticated', sub, email, {
+    app_metadata: { provider: 'facebook', providers: ['facebook'] },
+    user_metadata: { full_name: name, name, email, avatar_url: 'https://platform-lookaside.fbsbx.com/platform/profilepic/?asid=1' },
   })
 const asSuper = () => pg.exec('reset role;')
 
@@ -401,7 +407,7 @@ const sent = (await pg.query(`select count(*)::int n from realtime.sent where to
 ok(sent >= 6, `realtime ping sent on the order's token channel (${sent} pings)`)
 
 // ---------------------------------------------------------------------
-console.log('\nGoogle (Gmail) verification')
+console.log('\nGoogle or Facebook verification')
 const gUser = (await pg.query(`insert into auth.users (email) values ('juan@gmail.com') returning id`)).rows[0].id
 const emailUser = (await pg.query(`insert into auth.users (email) values ('sneaky@x.ph') returning id`)).rows[0].id
 const gOrder = (phone) => place({ ...base, phone, items: [{ variant_id: hazel, quantity: 1 }] })
@@ -412,25 +418,44 @@ ok((await pg.query(`select count(*)::int n from information_schema.columns where
 await pg.query(`update settings set value = 'true' where key = 'require_google_login'`)
 await asRole('anon')
 ok((await pg.query('select get_checkout_info() as i')).rows[0].i.require_google_login === true, 'checkout info tells the site Google is required')
-await expectError(pg, ...order('09170000020'), 'sign in with your Google', 'guest order blocked once Google is required')
+await expectError(pg, ...order('09170000020'), 'sign in with Google or Facebook', 'guest order blocked once Google is required')
 await asRole('authenticated', emailUser, 'sneaky@x.ph', { app_metadata: { provider: 'email', providers: ['email'] } })
-await expectError(pg, ...order('09170000020'), 'sign in with your Google', 'an email sign up cannot skip Google')
-await asRole('authenticated', emailUser, 'sneaky@x.ph', { app_metadata: { provider: 'facebook', providers: ['facebook'] } })
-await expectError(pg, ...order('09170000020'), 'sign in with your Google', 'a Facebook login no longer counts')
+await expectError(pg, ...order('09170000020'), 'sign in with Google or Facebook', 'an email sign up cannot skip Google or Facebook')
 await asRole('authenticated', emailUser, 'sneaky@x.ph', { user_metadata: { providers: ['google'] } })
-await expectError(pg, ...order('09170000020'), 'sign in with your Google', 'faking Google in user_metadata does not work')
+await expectError(pg, ...order('09170000020'), 'sign in with Google or Facebook', 'faking Google in user_metadata does not work')
 await asGoogle(gUser, 'Juan Dela Cruz', 'juan@gmail.com')
 const rg = (await gOrder('09170000020')).rows[0].r
 ok(!!rg.order_number, 'Google-verified customer can order')
 await asSuper()
-const gRow = (await pg.query('select customer_user_id, google_name, google_email, google_picture from orders where order_number = $1', [rg.order_number])).rows[0]
+const gRow = (await pg.query('select customer_user_id, google_name, google_email, google_picture, verified_with from orders where order_number = $1', [rg.order_number])).rows[0]
 ok(gRow.customer_user_id === gUser && gRow.google_name === 'Juan Dela Cruz' && gRow.google_email === 'juan@gmail.com' && gRow.google_picture.includes('googleusercontent'), 'order saves the Google account, name, Gmail and photo')
+ok(gRow.verified_with === 'google', 'order says it was verified with Google')
 await pg.query(`update settings set value = '2' where key = 'max_orders_per_phone_per_day'`)
 await asGoogle(gUser, 'Juan Dela Cruz', 'juan@gmail.com')
 await gOrder('09170000021')
-await expectError(pg, ...order('09170000022'), 'This Google account has reached', 'daily limit per Google account, even with new phone numbers')
+await expectError(pg, ...order('09170000022'), 'This account has reached', 'daily limit per Google account, even with new phone numbers')
 ok((await pg.query('select count(*)::int n from orders')).rows[0].n === 0, 'a Google customer cannot read anyone\'s orders, not even their own')
 await asSuper()
+const fUser = (await pg.query(`insert into auth.users (email) values ('maria@yahoo.com') returning id`)).rows[0].id
+await asFacebook(fUser, 'Maria Santos', 'maria@yahoo.com')
+const rf = (await gOrder('09170000030')).rows[0].r
+ok(!!rf.order_number, 'Facebook-verified customer can order')
+await asSuper()
+const fRow = (await pg.query('select customer_user_id, google_name, google_email, google_picture, verified_with from orders where order_number = $1', [rf.order_number])).rows[0]
+ok(fRow.customer_user_id === fUser && fRow.google_name === 'Maria Santos' && fRow.google_email === 'maria@yahoo.com' && fRow.google_picture.includes('fbsbx'), 'order saves the Facebook account, name, email and photo')
+ok(fRow.verified_with === 'facebook', 'order says it was verified with Facebook')
+await asFacebook(fUser, 'Maria Santos', 'maria@yahoo.com')
+await gOrder('09170000031')
+await expectError(pg, ...order('09170000032'), 'This account has reached', 'daily limit per Facebook account, even with new phone numbers')
+await asRole('authenticated', emailUser, 'sneaky@x.ph', { user_metadata: { providers: ['facebook'] } })
+await expectError(pg, ...order('09170000033'), 'sign in with Google or Facebook', 'faking Facebook in user_metadata does not work')
+// Same email on both: the order records whichever was used last.
+await asSuper()
+const bUser = (await pg.query(`insert into auth.users (email) values ('both@gmail.com') returning id`)).rows[0].id
+await asRole('authenticated', bUser, 'both@gmail.com', { app_metadata: { provider: 'google', providers: ['google', 'facebook'] }, user_metadata: { full_name: 'Ben' } })
+const rb = (await gOrder('09170000040')).rows[0].r
+await asSuper()
+ok((await pg.query('select verified_with from orders where order_number = $1', [rb.order_number])).rows[0].verified_with === 'facebook', 'both linked, last used Facebook: saved as Facebook')
 await pg.query(`update settings set value = '5' where key = 'max_orders_per_phone_per_day'`)
 await pg.query(`update settings set value = 'false' where key = 'require_google_login'`)
 
