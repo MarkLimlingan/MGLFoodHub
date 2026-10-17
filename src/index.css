@@ -10,6 +10,7 @@
   --color-brand-50: #fff4e6;
   --color-brand-100: #ffe6c7;
   --color-brand-600: #e57f07;
+  --color-brand-ink: #a8480a; /* orange for text: 4.9:1+ on cream, sand and white (customer pages) */
   --color-brand-red: #e2382b;
   --color-cream: #fbf4ea;
   --color-sand: #f5e9d8;
@@ -53,6 +54,31 @@
   &::-webkit-scrollbar { display: none; }
 }
 
+/* Soft UI (neumorphism): surfaces share the cream page colour and are shaped by a light
+   highlight (top left) and a warm shadow (bottom right). Text on them stays full contrast. */
+@utility neu-raised {
+  background-color: var(--color-cream);
+  box-shadow: 14px 14px 32px rgb(214 196 168 / 0.55), -14px -14px 32px rgb(255 255 255 / 0.95);
+}
+@utility neu-raised-sm {
+  background-color: var(--color-cream);
+  box-shadow: 4px 4px 10px rgb(214 196 168 / 0.6), -4px -4px 10px rgb(255 255 255 / 0.95);
+}
+@utility neu-inset {
+  background-color: var(--color-cream);
+  box-shadow: inset 6px 6px 14px rgb(214 196 168 / 0.55), inset -6px -6px 14px rgb(255 255 255 / 0.9);
+}
+/* One content-card style for every customer page: white, warm hairline, soft lift. */
+@utility surface-card {
+  background-color: #ffffff;
+  box-shadow: 0 0 0 1px rgb(239 220 194 / 0.7), 0 1px 2px rgb(13 43 78 / 0.04), 0 8px 20px -12px rgb(120 84 40 / 0.25);
+}
+/* Raised button that sinks in when pressed. */
+@utility neu-button {
+  box-shadow: 8px 8px 18px rgb(214 196 168 / 0.7), -8px -8px 18px rgb(255 255 255 / 0.95);
+  &:active { box-shadow: inset 4px 4px 10px rgb(170 95 10 / 0.35), inset -4px -4px 10px rgb(255 214 160 / 0.6); }
+}
+
 @layer base {
   html { -webkit-tap-highlight-color: transparent; }
   body {
@@ -65,6 +91,10 @@
   button:not(:disabled), [role="button"]:not(:disabled) { cursor: pointer; }
   input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
 }
+
+/* Customer pages (CustomerLayout tags <html>): two fonts only. Playfair for big headlines,
+   Inter for everything else. The admin keeps its own heading font. */
+html.mgl-customer { --font-heading: var(--font-sans); }
 
 @keyframes sheet-in {
   from { transform: translateX(100%); }

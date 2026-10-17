@@ -11,7 +11,7 @@ export default function Privacy() {
   }, [])
   return (
     <PageShell title="Privacy Policy" subtitle="Last updated October 14, 2026" icon={<ShieldCheck />}>
-      <div className="space-y-6 rounded-2xl bg-white p-5 text-sm leading-relaxed text-navy/80 shadow-sm ring-1 ring-sand-200/70 sm:p-8 sm:text-[15px]">
+      <div className="surface-card space-y-6 rounded-2xl p-5 text-sm leading-relaxed text-navy/80 sm:p-8 sm:text-[15px]">
         <p>
           MGL Food Hub runs this website for scheduled food delivery from our partner stores in Malabon. This page explains what information we
           collect, why we collect it, and how you can have it deleted.
@@ -77,7 +77,7 @@ export default function Privacy() {
           <p>
             Questions about your privacy? <MessageLink>Message us on Facebook</MessageLink>.
           </p>
-          <p className="mt-1 break-all text-xs text-navy/50">{OWNER_MESSAGE_URL}</p>
+          <p className="mt-1 break-all text-xs text-navy/70">{OWNER_MESSAGE_URL}</p>
         </LegalSection>
       </div>
     </PageShell>

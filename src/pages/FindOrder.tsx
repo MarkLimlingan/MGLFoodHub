@@ -31,7 +31,7 @@ export default function FindOrder() {
 
   return (
     <PageShell title="Find my order" subtitle="Enter your order number and the phone number you used at checkout." icon={<Search />}>
-      <form onSubmit={submit} className="space-y-4 rounded-2xl bg-white ring-1 ring-sand-200/70 p-4 shadow-sm sm:p-6" noValidate>
+      <form onSubmit={submit} className="surface-card space-y-4 rounded-2xl p-4 sm:p-6" noValidate>
         <Field label="Order number" htmlFor="on" required>
           <Input id="on" value={orderNumber} onChange={(e) => setOrderNumber(e.target.value.toUpperCase())} placeholder="MGL-261008-AB12" autoCapitalize="characters" className="font-mono" />
         </Field>

@@ -50,7 +50,7 @@ export function TrackingLinkActions({ url, orderNumber, showQr = true }: { url: 
       <div className={showQr ? 'flex justify-center' : 'hidden'}>
         <div className="rounded-2xl border border-sand-200 bg-white p-3">
           <QRCodeCanvas ref={qrRef} value={url} size={180} marginSize={2} fgColor="#0D2B4E" level="M" />
-          <p className="mt-1 text-center text-xs text-navy/55">Scan to open your tracking page</p>
+          <p className="mt-1 text-center text-xs text-navy/70">Scan to open your tracking page</p>
         </div>
       </div>
     </div>
@@ -73,7 +73,7 @@ export function OrderItemsList({ items }: { items: PublicOrderItem[] }) {
                   <p className="font-medium">
                     {i.quantity}× {i.product_name}
                   </p>
-                  <p className="text-xs text-navy/55">
+                  <p className="text-xs text-navy/70">
                     {[
                       i.section_name && i.section_name !== i.product_name ? i.section_name : null,
                       i.variant_label !== 'Regular' ? i.variant_label : null,

@@ -94,8 +94,9 @@ export function ProductCard({
     <article
       id={`product-${product.id}`}
       className={cn(
-        'relative flex scroll-mt-36 flex-col overflow-hidden rounded-2xl bg-white shadow-sm ring-1 transition-shadow hover:shadow-lg hover:shadow-navy/10',
-        highlight ? 'ring-2 ring-brand' : 'ring-sand-200/70',
+        'relative flex scroll-mt-36 flex-col overflow-hidden rounded-2xl transition-shadow',
+        // Opened from search: an orange ring. Otherwise the shared card surface with a soft lift on hover.
+        highlight ? 'bg-white ring-2 ring-brand' : 'surface-card hover:shadow-lg hover:shadow-navy/10',
         productSoldOut && 'opacity-75',
       )}
     >
@@ -112,10 +113,10 @@ export function ProductCard({
           <div className="flex flex-wrap items-center gap-1.5">
             <ProductBadge badge={product.badge} />
           </div>
-          <h3 className={cn('mt-1 font-heading text-base font-bold leading-snug', productSoldOut && 'text-navy/50')}>{product.name}</h3>
-          {product.description && <p className="mt-1 text-sm text-navy/65">{product.description}</p>}
+          <h3 className={cn('mt-1 font-heading text-base font-bold leading-snug', productSoldOut && 'text-navy/70')}>{product.name}</h3>
+          {product.description && <p className="mt-1 text-sm text-navy/70">{product.description}</p>}
           {variants.length > 1 && (
-            <p className="mt-1 text-xs font-medium text-navy/50">from {peso(fromPrice)}</p>
+            <p className="mt-1 text-xs font-medium text-navy/70">from {peso(fromPrice)}</p>
           )}
         </div>
 
@@ -131,7 +132,7 @@ export function ProductCard({
                 title={v.is_sold_out ? 'Sold out' : undefined}
               >
                 <span className={cn(v.is_sold_out && 'line-through')}>{v.label}</span>
-                <span className={cn('tabular-nums', variant?.id === v.id ? 'text-navy/75' : 'text-navy/55')}>{peso(v.price)}</span>
+                <span className={cn('tabular-nums', variant?.id === v.id ? 'text-navy/75' : 'text-navy/70')}>{peso(v.price)}</span>
                 {v.is_sold_out && <span className="text-[10px] font-bold uppercase text-brand-red">Sold out</span>}
               </Chip>
             ))}
@@ -140,7 +141,7 @@ export function ProductCard({
 
         {groups.map((g) => (
           <div key={g.id} className="space-y-1.5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-navy/60">
+            <p className="text-xs font-semibold uppercase tracking-wide text-navy/70">
               {g.name}
               {g.is_required && <span className="ml-1 normal-case text-brand-red">(choose 1)</span>}
             </p>
@@ -154,7 +155,7 @@ export function ProductCard({
                   className="text-xs sm:text-sm"
                 >
                   {c.label}
-                  {Number(c.price_delta) > 0 && <span className="text-navy/55">+{peso(c.price_delta)}</span>}
+                  {Number(c.price_delta) > 0 && <span className="text-navy/70">+{peso(c.price_delta)}</span>}
                 </Chip>
               ))}
             </div>
@@ -165,14 +166,14 @@ export function ProductCard({
           <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-dashed border-brand/50 bg-[#fdf3e3] px-3 py-2.5 text-sm">
             <Checkbox checked={extra} onCheckedChange={(v) => setExtra(v === true)} disabled={productSoldOut} />
             <span className="flex-1 font-medium">Add Extra Toppings</span>
-            <span className="font-semibold tabular-nums text-brand-600">+{peso(variant.addon_price)}</span>
+            <span className="font-semibold tabular-nums text-brand-ink">+{peso(variant.addon_price)}</span>
           </label>
         )}
 
         <div className="mt-auto flex items-center justify-between gap-2 pt-1">
           <div>
-            <p className="font-heading text-xl font-bold tabular-nums text-brand-600">{peso((unitCents * qty) / 100)}</p>
-            {qty > 1 && <p className="text-xs text-navy/50 tabular-nums">{peso(unitCents / 100)} each</p>}
+            <p className="font-heading text-xl font-bold tabular-nums text-brand-ink">{peso((unitCents * qty) / 100)}</p>
+            {qty > 1 && <p className="text-xs text-navy/70 tabular-nums">{peso(unitCents / 100)} each</p>}
           </div>
           <QuantityStepper size="sm" value={qty} onChange={setQty} disabled={disabled} />
         </div>
@@ -192,7 +193,7 @@ export function ProductCard({
           )}
         </Button>
         {missingGroup && !disabled && (
-          <p className="-mt-1.5 text-center text-xs text-navy/55">Choose a {missingGroup.name.toLowerCase()} to continue</p>
+          <p className="-mt-1.5 text-center text-xs text-navy/70">Choose a {missingGroup.name.toLowerCase()} to continue</p>
         )}
       </div>
     </article>

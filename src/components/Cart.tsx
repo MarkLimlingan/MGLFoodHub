@@ -4,6 +4,7 @@ import { AlertTriangle, ArrowRight, ShoppingBag, Store as StoreIcon, Trash2 } fr
 import { useCartView, useCatalog } from '@/hooks/useCatalog'
 import { useCart } from '@/store/cart'
 import { cn, peso } from '@/lib/utils'
+import { storeCardImage } from '@/lib/storeImages'
 import { Button } from './ui/button'
 import { QuantityStepper } from './ui/controls'
 import { Dialog, SheetContent } from './ui/dialog'
@@ -59,29 +60,29 @@ export function CartContents({ onNavigate, compact }: { onNavigate?: () => void;
         </div>
       )}
       {view.byStore.map((group) => (
-        <section key={group.storeId} className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-sand-200/70">
+        <section key={group.storeId} className="surface-card rounded-2xl p-4">
           <header className="mb-1 flex items-center justify-between gap-2">
             <Link
               to={`/store/${group.storeSlug}`}
               onClick={onNavigate}
-              className="flex min-w-0 items-center gap-2 text-xs font-semibold uppercase tracking-wide text-navy/55 hover:text-brand-600"
+              className="flex min-w-0 items-center gap-2 text-xs font-semibold uppercase tracking-wide text-navy/70 hover:text-brand-ink"
             >
-              <StoreIcon className="size-3.5 shrink-0 text-brand-600" />
+              <StoreIcon className="size-3.5 shrink-0 text-brand-ink" />
               <span className="truncate">{group.storeName}</span>
             </Link>
-            <span className="shrink-0 text-xs font-semibold tabular-nums text-navy/55">{peso(group.subtotalCents / 100)}</span>
+            <span className="shrink-0 text-xs font-semibold tabular-nums text-navy/70">{peso(group.subtotalCents / 100)}</span>
           </header>
           <ul className="divide-y divide-sand">
             {group.lines.map(({ line, unitPrice, issue }) => (
               <li key={line.key} className="flex gap-3 py-3.5 last:pb-0">
                 <SmartImage
-                  src={line.imageUrl ?? cat.storeById.get(line.storeId)?.cover_image_url}
+                  src={line.imageUrl ?? (cat.storeById.get(line.storeId) ? storeCardImage(cat.storeById.get(line.storeId)!) : null)}
                   alt=""
                   className={cn('size-16 shrink-0 rounded-xl object-top ring-1 ring-sand-200', issue && 'grayscale')}
                 />
                 <div className="min-w-0 flex-1">
-                  <p className={cn('text-sm font-semibold leading-snug', issue && 'text-navy/50 line-through')}>{line.productName}</p>
-                  <p className="text-xs text-navy/55">
+                  <p className={cn('text-sm font-semibold leading-snug', issue && 'text-navy/70 line-through')}>{line.productName}</p>
+                  <p className="text-xs text-navy/70">
                     {line.sectionName && line.sectionName !== line.productName ? `${line.sectionName} · ` : ''}
                     {lineDetails(line.variantLabel, line.choices)}
                     {line.extraToppings ? ' · Extra toppings' : ''}
@@ -92,8 +93,8 @@ export function CartContents({ onNavigate, compact }: { onNavigate?: () => void;
                     <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                       <QuantityStepper size="sm" value={line.quantity} onChange={(n) => setQuantity(line.key, n)} />
                       <div className="text-right">
-                        <p className="text-sm font-bold tabular-nums text-brand-600">{peso(unitPrice * line.quantity)}</p>
-                        {line.quantity > 1 && <p className="text-[11px] tabular-nums text-navy/50">{peso(unitPrice)} each</p>}
+                        <p className="text-sm font-bold tabular-nums text-brand-ink">{peso(unitPrice * line.quantity)}</p>
+                        {line.quantity > 1 && <p className="text-[11px] tabular-nums text-navy/70">{peso(unitPrice)} each</p>}
                       </div>
                     </div>
                   )}
@@ -101,7 +102,7 @@ export function CartContents({ onNavigate, compact }: { onNavigate?: () => void;
                 <button
                   type="button"
                   onClick={() => remove(line.key)}
-                  className="flex size-9 shrink-0 items-center justify-center self-start rounded-full text-navy/55 transition hover:bg-red-50 hover:text-brand-red"
+                  className="flex size-9 shrink-0 items-center justify-center self-start rounded-full text-navy/70 transition hover:bg-red-50 hover:text-brand-red"
                   aria-label={`Remove ${line.productName}`}
                   title="Remove"
                 >
@@ -120,22 +121,22 @@ export function CartContents({ onNavigate, compact }: { onNavigate?: () => void;
 export function CartTotals() {
   const view = useCartView()
   return (
-    <div className="space-y-2.5 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-sand-200/70">
+    <div className="surface-card space-y-2.5 rounded-2xl p-4">
       <div className="flex justify-between text-sm">
-        <span className="text-navy/65">
+        <span className="text-navy/70">
           Subtotal ({view.count} {view.count === 1 ? 'item' : 'items'})
         </span>
         <span className="font-semibold tabular-nums">{peso(view.subtotalCents / 100)}</span>
       </div>
       <div className="flex justify-between text-sm">
-        <span className="text-navy/65">Delivery Fee</span>
-        <span className="font-medium text-navy/55">To be confirmed</span>
+        <span className="text-navy/70">Delivery Fee</span>
+        <span className="font-medium text-navy/70">To be confirmed</span>
       </div>
       <div className="flex justify-between border-t border-sand pt-3 font-heading text-lg font-bold">
         <span>Grand total</span>
         <span className="tabular-nums">{peso(view.subtotalCents / 100)}</span>
       </div>
-      <p className="text-xs leading-relaxed text-navy/55">{FEE_NOTE}</p>
+      <p className="text-xs leading-relaxed text-navy/70">{FEE_NOTE}</p>
     </div>
   )
 }
@@ -153,12 +154,12 @@ export function CartSheet() {
         {view.lines.length > 0 && (
           <div className="space-y-2.5 border-t border-sand bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
             <div className="flex justify-between text-sm">
-              <span className="text-navy/65">Subtotal</span>
+              <span className="text-navy/70">Subtotal</span>
               <span className="font-semibold tabular-nums">{peso(view.subtotalCents / 100)}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-navy/65">Delivery Fee</span>
-              <span className="text-navy/55">To be confirmed</span>
+              <span className="text-navy/70">Delivery Fee</span>
+              <span className="text-navy/70">To be confirmed</span>
             </div>
             <CartCheckoutButton
               disabled={view.hasIssues}
@@ -170,7 +171,7 @@ export function CartSheet() {
               Proceed to Checkout · {peso(view.subtotalCents / 100)} <ArrowRight />
             </CartCheckoutButton>
             {view.hasIssues && <p className="text-center text-xs text-brand-red">Remove unavailable items to continue.</p>}
-            <p className="text-center text-[11px] leading-snug text-navy/50">{FEE_NOTE}</p>
+            <p className="text-center text-[11px] leading-snug text-navy/70">{FEE_NOTE}</p>
           </div>
         )}
       </SheetContent>

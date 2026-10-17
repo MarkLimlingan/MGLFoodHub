@@ -38,24 +38,22 @@ export default function OrderPlaced() {
   return (
     <div className="mx-auto max-w-2xl space-y-5 px-3 sm:px-4 py-8 sm:py-12">
       {error && <ErrorBanner>{error}</ErrorBanner>}
-      <div className="relative overflow-hidden rounded-[2rem] bg-white px-5 pb-8 pt-10 text-center shadow-sm ring-1 ring-sand-200/70 animate-fade-up">
+      <div className="neu-raised relative overflow-hidden rounded-[2rem] px-5 pb-8 pt-10 text-center animate-fade-up">
         {/* Confetti doodles like the reference */}
-        <span aria-hidden className="pointer-events-none absolute left-[14%] top-8 font-script text-3xl text-brand rotate-12">~</span>
-        <span aria-hidden className="pointer-events-none absolute right-[16%] top-6 font-script text-3xl text-brand -rotate-12">ʃ</span>
         <span aria-hidden className="pointer-events-none absolute left-[22%] top-24 size-1.5 rounded-full bg-brand" />
         <span aria-hidden className="pointer-events-none absolute right-[24%] top-28 size-2 rounded-full bg-brand/60" />
         <div className="mx-auto flex size-20 items-center justify-center rounded-full bg-brand text-navy shadow-lg shadow-brand/30 animate-pop">
           <CheckCircle2 className="size-11" strokeWidth={2.2} />
         </div>
         <h1 className="mt-5 font-display text-3xl font-bold sm:text-4xl">Order Placed!</h1>
-        <p className="mt-2 text-navy/65">Thank you for your order. Salamat po!</p>
+        <p className="mt-2 text-navy/70">Thank you for your order. Salamat po!</p>
         {order && (
           <>
-            <p className="mt-1 text-sm text-navy/65">
+            <p className="mt-1 text-sm text-navy/70">
               Order number <strong className="font-mono text-navy">{order.order_number}</strong>
             </p>
             <div className="mx-auto mt-6 max-w-xs border-t border-sand pt-5">
-              <p className="text-sm text-navy/55">Scheduled Delivery</p>
+              <p className="text-sm text-navy/70">Scheduled Delivery</p>
               <p className="mt-1 font-heading text-lg font-semibold">{formatDate(order.delivery_date)}</p>
               <p className="text-sm text-navy/70">{slotLabel(order.delivery_slot)}</p>
             </div>
@@ -66,7 +64,7 @@ export default function OrderPlaced() {
             View Order Details <ArrowRight />
           </Link>
         </Button>
-        <p className="mt-6 font-script text-3xl text-navy">
+        <p className="mt-6 font-display text-2xl italic text-navy">
           Enjoy your meal! <span className="text-brand-red">♡</span>
         </p>
       </div>
@@ -82,15 +80,15 @@ export default function OrderPlaced() {
       </div>
 
       {order && (
-        <div className="space-y-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-sand-200/70 sm:p-5">
+        <div className="surface-card space-y-4 rounded-2xl p-4 sm:p-5">
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
-              <p className="text-xs text-navy/55">Delivery</p>
+              <p className="text-xs text-navy/70">Delivery</p>
               <p className="font-semibold">{formatDate(order.delivery_date)}</p>
               <p className="text-navy/70">{slotLabel(order.delivery_slot)}</p>
             </div>
             <div>
-              <p className="text-xs text-navy/55">Payment</p>
+              <p className="text-xs text-navy/70">Payment</p>
               <p className="my-1.5 flex items-center gap-2 font-semibold">
                 <PaymentLogo method={order.payment_method} className="h-8 w-12 rounded-lg" />
                 {PAYMENT_METHOD_LABEL[order.payment_method]}
@@ -105,7 +103,7 @@ export default function OrderPlaced() {
             <span>Food subtotal</span>
             <span className="tabular-nums">{peso(order.subtotal)}</span>
           </div>
-          <p className="text-xs text-navy/55">Delivery fee will be confirmed by our team (higher fees may apply for long distance deliveries).</p>
+          <p className="text-xs text-navy/70">Delivery fee will be confirmed by our team (higher fees may apply for long distance deliveries).</p>
         </div>
       )}
 

@@ -1,6 +1,6 @@
-import { Suspense, useEffect, type ReactNode } from 'react'
+import { Suspense, useEffect, useLayoutEffect, type ReactNode } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
-import { ArrowRight, Banknote, ClipboardList, Home, Info, Search, ShoppingBag, Store as StoreIcon, type LucideIcon } from 'lucide-react'
+import { ArrowRight, Banknote, ClipboardList, Home, Info, ShoppingBag, Store as StoreIcon, type LucideIcon } from 'lucide-react'
 import { useCartView, useCatalog } from '@/hooks/useCatalog'
 import { cn, peso } from '@/lib/utils'
 import { ONLINE_METHODS, PAYMENT_LOGO, PAYMENT_METHOD_LABEL } from '@/lib/orderStatus'
@@ -8,7 +8,7 @@ import { Logo } from './Logo'
 import { CartSheet, useCartUI } from './Cart'
 import { OrderingGuidelines, useGuidelines } from './OrderingGuidelines'
 import { DELIVERY_DISCLAIMER, ScheduledNotice } from './common'
-import { InstallDialog, InstallLink, InstallNavButton, InstallNavItem } from './InstallApp'
+import { InstallDialog, InstallLink, InstallNavButton } from './InstallApp'
 import { Skeleton } from './ui/controls'
 
 /** Same rule everywhere so the bars never hide content. */
@@ -44,7 +44,7 @@ function CartButton() {
 const navLink = ({ isActive }: { isActive: boolean }) =>
   cn(
     'relative py-2 text-sm font-medium transition-colors hover:text-navy after:absolute after:inset-x-0 after:-bottom-0.5 after:h-0.5 after:rounded-full after:bg-brand after:transition-transform',
-    isActive ? 'text-navy after:scale-x-100' : 'text-navy/65 after:scale-x-0 hover:after:scale-x-100',
+    isActive ? 'text-navy after:scale-x-100' : 'text-navy/70 after:scale-x-0 hover:after:scale-x-100',
   )
 
 function Navbar() {
@@ -52,7 +52,7 @@ function Navbar() {
   const openGuidelines = useGuidelines((s) => s.setOpen)
   return (
     <header className="sticky top-0 z-40 border-b border-sand-200/70 bg-white/95 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-center gap-3 px-3 sm:px-4 md:h-[68px] md:justify-between">
+      <div className="mx-auto flex h-16 max-w-[110rem] items-center justify-center gap-3 px-3 sm:px-4 lg:px-6 md:h-[68px] md:justify-between">
         <Link to="/" className="shrink-0" aria-label="MGL Food Hub home">
           <Logo className="h-11 md:h-12" />
         </Link>
@@ -85,68 +85,57 @@ function Navbar() {
   )
 }
 
-/** Phones: everything from the navbar moves to a bottom bar — icons only. */
+/** Phones: four labeled tabs. The cart lives in the "View cart" bar above (it shows once something is in it). */
 function MobileNav() {
   const { pathname, hash } = useLocation()
-  const { count } = useCartView()
-  const openCart = useCartUI((s) => s.setOpen)
   const cartOpen = useCartUI((s) => s.open)
   const openGuidelines = useGuidelines((s) => s.setOpen)
   const guidelinesOpen = useGuidelines((s) => s.open)
+  const overlay = cartOpen || guidelinesOpen
 
-  const item = (active: boolean) =>
+  const tabs: { to?: string; label: string; icon: LucideIcon; active: boolean; onClick?: () => void }[] = [
+    { to: '/', label: 'Home', icon: Home, active: !overlay && pathname === '/' && hash !== '#stores' },
+    { to: '/#stores', label: 'Stores', icon: StoreIcon, active: !overlay && (pathname.startsWith('/store/') || (pathname === '/' && hash === '#stores')) },
+    { to: '/my-orders', label: 'Orders', icon: ClipboardList, active: !overlay && /^\/(my-orders|track|find-order|order-placed)/.test(pathname) },
+    { label: 'Help', icon: Info, active: guidelinesOpen, onClick: () => openGuidelines(true) },
+  ]
+  const tab = (active: boolean) =>
     cn(
-      'relative flex h-11 w-10 items-center justify-center rounded-full transition-colors active:scale-95 min-[360px]:w-11',
-      active ? 'bg-brand text-navy shadow-sm shadow-brand/30' : 'text-navy/55 hover:bg-sand hover:text-navy',
+      'flex h-full w-full flex-col items-center justify-center gap-1 text-[11px] font-semibold leading-none transition-colors active:scale-95',
+      active ? 'text-navy' : 'text-navy/70 hover:text-navy',
     )
-  const links: { to: string; label: string; icon: LucideIcon; active: boolean }[] = [
-    { to: '/', label: 'Home', icon: Home, active: pathname === '/' && hash !== '#stores' && !cartOpen && !guidelinesOpen },
-    { to: '/#stores', label: 'Stores', icon: StoreIcon, active: (pathname.startsWith('/store/') || (pathname === '/' && hash === '#stores')) && !cartOpen && !guidelinesOpen },
-  ]
-  const after: { to: string; label: string; icon: LucideIcon; active: boolean }[] = [
-    { to: '/my-orders', label: 'My orders', icon: ClipboardList, active: (pathname === '/my-orders' || pathname.startsWith('/track/')) && !cartOpen && !guidelinesOpen },
-    { to: '/find-order', label: 'Find my order', icon: Search, active: pathname === '/find-order' && !cartOpen && !guidelinesOpen },
-  ]
+  const pill = (active: boolean) =>
+    cn('flex h-7 w-12 items-center justify-center rounded-full transition-colors', active ? 'bg-brand text-navy shadow-sm shadow-brand/30' : '')
 
   return (
     <nav
       className="fixed inset-x-0 bottom-0 z-40 border-t border-sand-200/70 bg-white/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-6px_20px_-12px_rgba(13,43,78,0.25)] backdrop-blur-md md:hidden"
       aria-label="Main"
     >
-      <ul className="mx-auto flex h-16 max-w-md items-center justify-around px-2">
-        {links.map(({ to, label, icon: Icon, active }) => (
-          <li key={label}>
-            <Link to={to} className={item(active)} aria-label={label} title={label} aria-current={active ? 'page' : undefined}>
-              <Icon className="size-[22px]" strokeWidth={active ? 2.2 : 1.9} />
-            </Link>
-          </li>
-        ))}
-        <li>
-          <button type="button" onClick={() => openCart(true)} className={item(cartOpen)} aria-label={`Cart, ${count} items`} title="Cart">
-            <ShoppingBag className="size-[22px]" strokeWidth={cartOpen ? 2.2 : 1.9} />
-            {count > 0 && (
-              <span
-                key={count}
-                className="absolute -right-1 -top-1 flex min-w-5 items-center justify-center rounded-full bg-brand-red px-1 text-[11px] font-bold leading-5 text-white ring-2 ring-white animate-pop"
-              >
-                {count}
+      <ul className="mx-auto grid h-16 max-w-md grid-cols-4">
+        {tabs.map(({ to, label, icon: Icon, active, onClick }) => {
+          const inner = (
+            <>
+              <span className={pill(active)}>
+                <Icon className="size-[21px]" strokeWidth={active ? 2.2 : 1.9} />
               </span>
-            )}
-          </button>
-        </li>
-        <InstallNavItem className={item(false)} />
-        {after.map(({ to, label, icon: Icon, active }) => (
-          <li key={label}>
-            <Link to={to} className={item(active)} aria-label={label} title={label} aria-current={active ? 'page' : undefined}>
-              <Icon className="size-[22px]" strokeWidth={active ? 2.2 : 1.9} />
-            </Link>
-          </li>
-        ))}
-        <li>
-          <button type="button" onClick={() => openGuidelines(true)} className={item(guidelinesOpen)} aria-label="Ordering guidelines" title="Ordering guidelines">
-            <Info className="size-[22px]" strokeWidth={guidelinesOpen ? 2.2 : 1.9} />
-          </button>
-        </li>
+              {label}
+            </>
+          )
+          return (
+            <li key={label}>
+              {to ? (
+                <Link to={to} className={tab(active)} aria-current={active ? 'page' : undefined}>
+                  {inner}
+                </Link>
+              ) : (
+                <button type="button" onClick={onClick} className={tab(active)}>
+                  {inner}
+                </button>
+              )}
+            </li>
+          )
+        })}
       </ul>
     </nav>
   )
@@ -162,21 +151,21 @@ function Footer() {
   const item =
     'block w-fit py-1 text-sm text-navy/75 underline-offset-4 transition-colors hover:text-navy hover:underline hover:decoration-brand hover:decoration-2'
   return (
-    <footer className="mx-auto mt-16 w-full max-w-7xl px-0 sm:px-4 sm:pb-6">
-      <div className="relative overflow-hidden bg-sand text-navy ring-1 ring-sand-200 sm:rounded-3xl">
+    <footer className="mx-auto mt-16 w-full max-w-[110rem] px-3 pb-4 sm:px-4 lg:px-6 sm:pb-6">
+      <div className="neu-raised relative overflow-hidden rounded-[2rem] text-navy">
         <div className="relative grid grid-cols-2 gap-x-6 gap-y-8 px-4 py-10 sm:px-8 lg:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))]">
           <div className="col-span-2 space-y-4 lg:col-span-1">
             <Logo className="h-16" />
-            <p className="font-script text-[1.75rem] leading-none text-navy">Good food, on schedule.</p>
+            <p className="font-display text-2xl italic leading-none text-navy">Good food, on schedule.</p>
             <p className="max-w-xs text-sm text-navy/75">13 Malabon favorites in one cart, with scheduled delivery straight to your door.</p>
             <div>
               <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-navy/70">We accept</p>
               <div className="flex flex-wrap gap-2 text-xs">
-                <span className="inline-flex h-[30px] items-center gap-1.5 rounded-full bg-white px-3 font-medium text-navy ring-1 ring-sand-200">
+                <span className="surface-card inline-flex h-[30px] items-center gap-1.5 rounded-full px-3 font-medium text-navy">
                   <Banknote className="size-3.5 text-emerald-600" /> Cash on Delivery
                 </span>
                 {ONLINE_METHODS.map((m) => (
-                  <span key={m} className="inline-flex h-[30px] items-center rounded-full bg-white px-3 ring-1 ring-sand-200" title={PAYMENT_METHOD_LABEL[m]}>
+                  <span key={m} className="surface-card inline-flex h-[30px] items-center rounded-full px-3" title={PAYMENT_METHOD_LABEL[m]}>
                     <img src={PAYMENT_LOGO[m]} alt={PAYMENT_METHOD_LABEL[m]} className="h-4 w-auto max-w-16 object-contain" />
                   </span>
                 ))}
@@ -256,6 +245,11 @@ function FloatingCartBar() {
 export function CustomerLayout() {
   const { pathname, hash } = useLocation()
   const cartBar = useFloatingCartVisible()
+  // Tags customer pages so headings use Inter (index.css); the admin keeps its own fonts.
+  useLayoutEffect(() => {
+    document.documentElement.classList.add('mgl-customer')
+    return () => document.documentElement.classList.remove('mgl-customer')
+  }, [])
   useEffect(() => {
     if (hash) {
       document.getElementById(hash.slice(1))?.scrollIntoView({ behavior: 'smooth' })
@@ -293,10 +287,10 @@ export function PageShell({ title, subtitle, children, icon }: { title: string; 
   return (
     <div className="mx-auto max-w-3xl px-3 py-8 sm:px-4 sm:py-12">
       <div className="mb-7 flex items-start gap-3 animate-fade-up">
-        {icon && <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-sand text-brand-600 [&_svg]:size-5">{icon}</div>}
+        {icon && <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-sand text-brand-ink [&_svg]:size-5">{icon}</div>}
         <div>
           <h1 className="font-display text-3xl font-bold leading-tight sm:text-4xl">{title}</h1>
-          {subtitle && <p className="mt-1.5 text-sm text-navy/60">{subtitle}</p>}
+          {subtitle && <p className="mt-1.5 text-sm text-navy/70">{subtitle}</p>}
         </div>
       </div>
       {children}

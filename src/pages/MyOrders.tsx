@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronRight, ClipboardList, Trash2 } from 'lucide-react'
+import { ChevronRight, ClipboardList, Search, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getMyOrders, removeMyOrder, type SavedOrder } from '@/lib/myOrders'
 import { ORDER_STATUS_LABEL, ORDER_STATUS_TONE, PAYMENT_METHOD_LABEL, PAYMENT_STATUS_LABEL } from '@/lib/orderStatus'
@@ -48,7 +48,7 @@ export default function MyOrders() {
           {saved.map((s) => {
             const o = summaries.get(s.token)
             return (
-              <li key={s.token} className="flex items-stretch overflow-hidden rounded-2xl bg-white ring-1 ring-sand-200/70 shadow-sm animate-fade-up">
+              <li key={s.token} className="surface-card flex items-stretch overflow-hidden rounded-2xl animate-fade-up">
                 <Link to={`/track/${s.token}`} className="flex flex-1 items-center gap-3 p-4 hover:bg-brand-50/40">
                   <div className="min-w-0 flex-1 space-y-1">
                     <p className="font-mono font-bold">{s.order_number}</p>
@@ -56,7 +56,7 @@ export default function MyOrders() {
                       <Skeleton className="h-4 w-40" />
                     ) : o ? (
                       <>
-                        <p className="text-sm text-navy/65">
+                        <p className="text-sm text-navy/70">
                           {formatDate(o.delivery_date)} · {slotLabel(o.delivery_slot)} · {peso(o.total)}
                         </p>
                         <div className="flex flex-wrap gap-1.5">
@@ -65,14 +65,14 @@ export default function MyOrders() {
                         </div>
                       </>
                     ) : (
-                      <p className="text-sm text-navy/50">Status unavailable</p>
+                      <p className="text-sm text-navy/70">Status unavailable</p>
                     )}
                   </div>
                   <ChevronRight className="size-5 shrink-0 text-navy/30" />
                 </Link>
                 <button
                   type="button"
-                  className="border-l border-sand px-3 text-navy/40 hover:bg-red-50 hover:text-brand-red"
+                  className="border-l border-sand px-3 text-navy/70 hover:bg-red-50 hover:text-brand-red"
                   aria-label={`Remove ${s.order_number} from this device`}
                   onClick={() => {
                     if (!confirm('Remove this order link from this device? Save the link somewhere first if you still need it.')) return
@@ -86,6 +86,16 @@ export default function MyOrders() {
             )
           })}
         </ul>
+      )}
+      {saved.length > 0 && (
+        <Link
+          to="/find-order"
+          className="surface-card mt-5 flex items-center gap-3 rounded-2xl px-4 py-3.5 text-sm text-navy/80 transition hover:text-navy"
+        >
+          <Search className="size-5 shrink-0 text-brand-ink" />
+          <span className="flex-1">Ordered on another phone? Find it with your order number.</span>
+          <ChevronRight className="size-4 shrink-0 text-navy/40" />
+        </Link>
       )}
     </PageShell>
   )

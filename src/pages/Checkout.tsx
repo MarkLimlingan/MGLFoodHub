@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { DayPicker } from 'react-day-picker'
 import { toast } from 'sonner'
 import {
-  AlertTriangle, Check, CalendarDays, Clock, Copy, ImagePlus, Loader2, Lock, MapPin, ShoppingBag, User, Wallet,
+  AlertTriangle, Check, CalendarDays, Copy, ListChecks, ImagePlus, Loader2, Lock, MapPin, ShoppingBag, User, Wallet,
 } from 'lucide-react'
 import { useCatalog, useCartView } from '@/hooks/useCatalog'
 import { useCart } from '@/store/cart'
@@ -24,6 +24,7 @@ import { Checkbox, Chip, RadioCard, RadioGroup, Skeleton } from '@/components/ui
 import { Disclaimer, EmptyState, ErrorBanner, MessageOwner } from '@/components/common'
 import { CartTotals, FEE_NOTE } from '@/components/Cart'
 import { GoogleGate, GoogleLinked } from '@/components/GoogleLink'
+import { DEFAULT_GUIDELINES } from '@/components/OrderingGuidelines'
 import { devGooglePreview, useGoogleLink } from '@/lib/google'
 
 interface FormState {
@@ -65,6 +66,16 @@ const initialForm = (): FormState => ({
 })
 
 type Errors = Partial<Record<keyof FormState | 'proof', string>>
+
+/** "12:00-13:00" → "12 to 1 PM" (both ends share PM), "11:00-12:00" → "11 AM to 12 PM". Fits on one line. */
+function shortSlot(slot: string): string {
+  const [a, b] = slot.split('-')
+  if (!a || !b) return slot
+  const start = formatTime(a).replace(':00', '')
+  const end = formatTime(b).replace(':00', '')
+  const sameHalf = start.slice(-2) === end.slice(-2)
+  return `${sameHalf ? start.slice(0, -3) : start} to ${end}`
+}
 
 export default function Checkout() {
   const cat = useCatalog()
@@ -297,9 +308,9 @@ export default function Checkout() {
   ]
 
   return (
-    <div className="mx-auto max-w-7xl px-3 py-8 sm:px-4 sm:py-12">
+    <div className="mx-auto max-w-7xl px-3 py-8 sm:px-4 lg:px-6 sm:py-12">
       <h1 className="font-display text-3xl font-bold sm:text-4xl">Checkout</h1>
-      <p className="mt-1.5 text-sm text-navy/60">
+      <p className="mt-1.5 text-sm text-navy/70">
         Scheduled delivery only. The earliest is tomorrow. {requireGoogle ? 'Orders are verified with Google.' : 'No account needed.'}
       </p>
       <CheckoutSteps done={stepsDone} />
@@ -386,7 +397,7 @@ export default function Checkout() {
                       ]}
                     />
                   </div>
-                  <p className="text-xs text-navy/55">
+                  <p className="text-xs text-navy/70">
                     Same day delivery isn't available. Orders for tomorrow close at {formatTime(info.cutoff_time)} (PH time).
                   </p>
                 </Field>
@@ -395,15 +406,22 @@ export default function Checkout() {
                     <ErrorBanner>{slotInfo.conflict}</ErrorBanner>
                   ) : (
                     <>
-                      <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2">
+                      <div className="grid grid-cols-2 gap-2 xl:grid-cols-4" role="group" aria-label="Delivery time">
                         {slotInfo.slots.map((s) => (
-                          <Chip key={s.value} selected={form.delivery_slot === s.value} onClick={() => set('delivery_slot', s.value)} className="rounded-xl text-xs leading-tight">
-                            <Clock className="size-3.5" /> {s.label}
+                          <Chip
+                            key={s.value}
+                            selected={form.delivery_slot === s.value}
+                            onClick={() => set('delivery_slot', s.value)}
+                            aria-label={s.label}
+                            title={s.label}
+                            className="h-11 w-full whitespace-nowrap rounded-xl px-3 text-sm tabular-nums"
+                          >
+                            {shortSlot(s.value)}
                           </Chip>
                         ))}
                       </div>
                       {cartStores.length > 1 && slotInfo.window && (
-                        <p className="text-xs text-navy/55">
+                        <p className="text-xs text-navy/70">
                           Slots shown are when all {cartStores.length} stores in your cart are open ({formatTime(slotInfo.window.open)} to {formatTime(slotInfo.window.close)}).
                         </p>
                       )}
@@ -426,7 +444,7 @@ export default function Checkout() {
                 <PaymentLogo method="cod" />
                 <span className="min-w-0">
                   <span className="block font-semibold">Cash on Delivery</span>
-                  <span className={cn('block text-xs', codTooHigh ? 'font-medium text-brand-red' : 'text-navy/60')}>
+                  <span className={cn('block text-xs', codTooHigh ? 'font-medium text-brand-red' : 'text-navy/70')}>
                     {codTooHigh ? `Only for orders up to ${COD_MAX_LABEL}` : `Up to ${COD_MAX_LABEL}. We'll call to confirm`}
                   </span>
                 </span>
@@ -436,7 +454,7 @@ export default function Checkout() {
                   <PaymentLogo method={m} />
                   <span className="min-w-0">
                     <span className="block font-semibold">{PAYMENT_METHOD_LABEL[m]}</span>
-                    <span className="block text-xs text-navy/60">Pay now, upload proof</span>
+                    <span className="block text-xs text-navy/70">Pay now, upload proof</span>
                   </span>
                 </RadioCard>
               ))}
@@ -455,9 +473,9 @@ export default function Checkout() {
                       <p className="font-heading font-bold">Send your payment via {methodLabel}</p>
                     </div>
                     <dl className="space-y-1">
-                      <div className="flex justify-between gap-2"><dt className="text-navy/60">Account name</dt><dd className="min-w-0 break-words text-right font-semibold">{account.account_name || 'Not set yet'}</dd></div>
+                      <div className="flex justify-between gap-2"><dt className="text-navy/70">Account name</dt><dd className="min-w-0 break-words text-right font-semibold">{account.account_name || 'Not set yet'}</dd></div>
                       <div className="flex items-center justify-between gap-2">
-                        <dt className="text-navy/60">{methodLabel} number</dt>
+                        <dt className="text-navy/70">{methodLabel} number</dt>
                         <dd className="flex items-center gap-1 font-semibold tabular-nums">
                           {account.number || 'Not set yet'}
                           {account.number && (
@@ -469,7 +487,7 @@ export default function Checkout() {
                       </div>
                       <div className="flex justify-between gap-2 border-t border-sky-200 pt-1.5"><dt className="font-semibold">Amount to pay</dt><dd className="font-heading text-lg font-extrabold tabular-nums">{peso(total)}</dd></div>
                     </dl>
-                    <p className="text-xs text-navy/60">Food subtotal only. The delivery fee is paid to the rider.</p>
+                    <p className="text-xs text-navy/70">Food subtotal only. The delivery fee is paid to the rider.</p>
                   </div>
                 </div>
                 <Field label={`${methodLabel} Reference No.`} htmlFor="ref" required error={errors.gcash_reference}>
@@ -484,7 +502,7 @@ export default function Checkout() {
                     )}
                     <span className="text-sm">
                       <span className="block font-semibold">{proof ? 'Change screenshot' : 'Upload screenshot'}</span>
-                      <span className="block text-xs text-navy/55">{proof ? proof.name : 'JPG or PNG, up to 8 MB'}</span>
+                      <span className="block text-xs text-navy/70">{proof ? proof.name : 'JPG or PNG, up to 8 MB'}</span>
                     </span>
                     <input
                       type="file"
@@ -515,9 +533,25 @@ export default function Checkout() {
             <OrderSummary />
           </div>
 
+          <section className="surface-card rounded-2xl p-4 sm:p-5" aria-labelledby="before-order">
+            <h2 id="before-order" className="flex items-center gap-2 font-heading text-base font-semibold">
+              <ListChecks className="size-5 text-brand-ink" /> Before you place your order
+            </h2>
+            <ul className="mt-3 space-y-2">
+              {(info?.ordering_guidelines?.length ? info.ordering_guidelines : DEFAULT_GUIDELINES)
+                // The price/delivery fee note is already in the disclaimer just below.
+                .filter((t) => !/VAT inclusive/i.test(t))
+                .map((t) => (
+                  <li key={t} className="flex gap-2.5 text-sm text-navy/80">
+                    <Check className="mt-0.5 size-4 shrink-0 text-emerald-600" strokeWidth={2.5} /> {t}
+                  </li>
+                ))}
+            </ul>
+          </section>
+
           <Disclaimer />
 
-          <div className="space-y-4 rounded-2xl bg-white ring-1 ring-sand-200/70 p-4 sm:p-5" data-field-error={errors.agree ? 'true' : undefined}>
+          <div className="surface-card space-y-4 rounded-2xl p-4 sm:p-5" data-field-error={errors.agree ? 'true' : undefined}>
             <label className="flex cursor-pointer gap-3 text-sm">
               <Checkbox checked={form.agree} onCheckedChange={(v) => set('agree', v === true)} aria-invalid={!!errors.agree} className="mt-0.5" />
               <span>
@@ -537,7 +571,7 @@ export default function Checkout() {
             <Button type="submit" size="lg" className="w-full" loading={busy} disabled={blockedCheckout || busy}>
               {busy ? 'Placing your order…' : <><Lock /> Place Order · {peso(total)}</>}
             </Button>
-            <p className="text-center text-xs text-navy/55">{info?.delivery_fee_note || FEE_NOTE}</p>
+            <p className="text-center text-xs text-navy/70">{info?.delivery_fee_note || FEE_NOTE}</p>
           </div>
           </div>
         </form>
@@ -562,14 +596,14 @@ export default function Checkout() {
 
 function Section({ step, icon, title, optional, children }: { step: number; icon: ReactNode; title: string; optional?: boolean; children: ReactNode }) {
   return (
-    <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-sand-200/70 sm:p-6">
+    <section className="surface-card rounded-2xl p-4 sm:p-6">
       <h2 className="mb-5 flex items-center gap-3 font-heading text-base font-semibold">
-        <span className="flex size-9 items-center justify-center rounded-full bg-sand text-brand-600 [&_svg]:size-4">{icon}</span>
+        <span className="flex size-9 items-center justify-center rounded-full bg-sand text-brand-ink [&_svg]:size-4">{icon}</span>
         <span>
           <span className="mr-1 text-navy/35">{step}.</span>
           {title}
         </span>
-        {optional && <span className="text-xs font-normal text-navy/50">(optional)</span>}
+        {optional && <span className="text-xs font-normal text-navy/70">(optional)</span>}
       </h2>
       {children}
     </section>
@@ -591,12 +625,12 @@ function CheckoutSteps({ done }: { done: [boolean, boolean, boolean] }) {
               <span
                 className={cn(
                   'flex size-8 shrink-0 items-center justify-center rounded-full border text-sm font-semibold transition-colors',
-                  complete ? 'border-brand bg-brand text-navy' : active ? 'border-brand bg-white text-navy' : 'border-navy/15 bg-white text-navy/45',
+                  complete ? 'border-brand bg-brand text-navy' : active ? 'border-brand bg-white text-navy' : 'border-navy/15 bg-white text-navy/70',
                 )}
               >
                 {complete ? <Check className="size-4" strokeWidth={3} /> : i + 1}
               </span>
-              <span className={cn('text-xs font-medium sm:text-sm', complete || active ? 'text-navy' : 'text-navy/45', !active && 'max-[379px]:hidden')}>{label}</span>
+              <span className={cn('text-xs font-medium sm:text-sm', complete || active ? 'text-navy' : 'text-navy/70', !active && 'max-[379px]:hidden')}>{label}</span>
             </span>
             {i < labels.length - 1 && <span className={cn('h-px flex-1', complete ? 'bg-brand' : 'bg-navy/15')} />}
           </li>
@@ -610,7 +644,7 @@ function OrderSummary() {
   return (
     <section className="space-y-3">
       <h2 className="flex items-center gap-2 font-heading text-base font-bold">
-        <ShoppingBag className="size-5 text-brand-600" /> Order summary
+        <ShoppingBag className="size-5 text-brand-ink" /> Order summary
       </h2>
       <ReadOnlySummary />
       <CartTotals />
@@ -624,7 +658,7 @@ function ReadOnlySummary() {
   return (
     <div className="space-y-3">
       {view.byStore.map((g) => (
-        <div key={g.storeId} className="overflow-hidden rounded-2xl bg-white ring-1 ring-sand-200/70">
+        <div key={g.storeId} className="surface-card overflow-hidden rounded-2xl">
           <p className="border-b border-sand bg-sand/60 px-4 py-2 font-heading text-sm font-bold">{g.storeName}</p>
           <ul className="divide-y divide-sand text-sm">
             {g.lines.map(({ line, unitPrice, issue }) => (
@@ -633,7 +667,7 @@ function ReadOnlySummary() {
                   <p className={cn('font-medium', issue && 'line-through opacity-60')}>
                     {line.quantity}× {line.productName}
                   </p>
-                  <p className="text-xs text-navy/55">
+                  <p className="text-xs text-navy/70">
                     {[line.variantLabel !== 'Regular' ? line.variantLabel : null, ...line.choices.map((c) => `${c.groupName}: ${c.label}`), line.extraToppings ? 'Extra toppings' : null]
                       .filter(Boolean)
                       .join(' · ') || `${peso(unitPrice)} each`}
@@ -650,7 +684,7 @@ function ReadOnlySummary() {
           </ul>
         </div>
       ))}
-      <Link to="/cart" className="inline-block text-sm font-semibold text-brand-600 hover:underline">
+      <Link to="/cart" className="inline-block text-sm font-semibold text-brand-ink hover:underline">
         Edit cart
       </Link>
     </div>

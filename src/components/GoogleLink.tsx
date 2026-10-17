@@ -43,14 +43,14 @@ export function GoogleButton({ onLink, disabled, className }: { onLink: () => Pr
 /** Shown instead of the checkout form until the customer links Google. */
 export function GoogleGate({ onLink, error }: { onLink: () => Promise<void>; error: string | null }) {
   return (
-    <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-sand-200/70 sm:p-7">
+    <section className="surface-card rounded-2xl p-5 sm:p-7">
       <div className="flex items-start gap-3">
         <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[#4285F4]/10 text-[#4285F4]">
           <ShieldCheck className="size-5" />
         </span>
         <div className="min-w-0">
           <h2 className="font-heading text-lg font-bold">Sign in with your Gmail</h2>
-          <p className="mt-1 text-sm text-navy/65">
+          <p className="mt-1 text-sm text-navy/70">
             To keep out fake and scam orders, every order is verified with a Google account. We only see your name, Gmail address and profile photo.
             We never see your password.
           </p>
@@ -58,7 +58,7 @@ export function GoogleGate({ onLink, error }: { onLink: () => Promise<void>; err
       </div>
       {error && <ErrorBanner className="mt-4">{error}</ErrorBanner>}
       <GoogleButton onLink={onLink} className="mt-5" />
-      <p className="mt-3 text-center text-xs text-navy/50">You'll come back here after Google. Your cart is saved.</p>
+      <p className="mt-3 text-center text-xs text-navy/70">You'll come back here after Google. Your cart is saved.</p>
     </section>
   )
 }
@@ -66,16 +66,16 @@ export function GoogleGate({ onLink, error }: { onLink: () => Promise<void>; err
 /** Compact "signed in as" row above the checkout form. */
 export function GoogleLinked({ profile, onUnlink }: { profile: GoogleProfile; onUnlink: () => Promise<void> }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-sand-200/70">
+    <div className="surface-card flex items-center gap-3 rounded-2xl px-4 py-3">
       <SmartImage src={profile.picture} alt="" className="size-10 shrink-0 rounded-full" />
       <div className="min-w-0 flex-1">
-        <p className="flex items-center gap-1.5 text-xs font-semibold text-navy/60">
+        <p className="flex items-center gap-1.5 text-xs font-semibold text-navy/70">
           <GoogleLogo className="size-3.5" /> Verified with Google
         </p>
         <p className="truncate font-semibold">{profile.name}</p>
-        {profile.email && <p className="truncate text-xs text-navy/55">{profile.email}</p>}
+        {profile.email && <p className="truncate text-xs text-navy/70">{profile.email}</p>}
       </div>
-      <button type="button" onClick={() => void onUnlink()} className="shrink-0 text-xs font-semibold text-navy/55 underline-offset-2 hover:text-navy hover:underline">
+      <button type="button" onClick={() => void onUnlink()} className="shrink-0 text-xs font-semibold text-navy/70 underline-offset-2 hover:text-navy hover:underline">
         Not you?
       </button>
     </div>
@@ -94,14 +94,14 @@ export function CartCheckoutButton({ children, onCheckout, disabled }: { childre
     return (
       <div className="space-y-1.5">
         <GoogleButton onLink={google.link} disabled={disabled || !google.ready} />
-        <p className="text-center text-xs text-navy/55">Sign in with your Gmail to check out. This keeps out fake orders.</p>
+        <p className="text-center text-xs text-navy/70">Sign in with your Gmail to check out. This keeps out fake orders.</p>
       </div>
     )
   }
   return (
     <div className="space-y-1.5">
       {required && google.profile && (
-        <p className="flex items-center justify-center gap-1.5 text-xs text-navy/60">
+        <p className="flex items-center justify-center gap-1.5 text-xs text-navy/70">
           <GoogleLogo className="size-3.5" /> Signed in as <span className="font-semibold text-navy">{google.profile.email ?? google.profile.name}</span>
         </p>
       )}

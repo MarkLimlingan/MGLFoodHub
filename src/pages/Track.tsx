@@ -21,7 +21,7 @@ import { OrderItemsList, TrackingLinkActions } from '@/components/OrderBits'
 
 const toneIcon: Record<Tone, string> = {
   success: 'bg-emerald-100 text-emerald-700',
-  info: 'bg-sand text-brand-600',
+  info: 'bg-sand text-brand-ink',
   warning: 'bg-amber-100 text-amber-700',
   danger: 'bg-red-100 text-brand-red',
   neutral: 'bg-sand text-navy',
@@ -96,7 +96,7 @@ export default function Track() {
         <div>
           <h1 className="font-display text-3xl font-bold sm:text-4xl">Track Your Order</h1>
           <p className="mt-1 font-mono text-base font-semibold text-navy/80">{order.order_number}</p>
-          <p className="text-sm text-navy/55">Placed {formatDateTime(order.created_at)}</p>
+          <p className="text-sm text-navy/70">Placed {formatDateTime(order.created_at)}</p>
         </div>
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
@@ -111,7 +111,7 @@ export default function Track() {
       {error && <ErrorBanner>{error}</ErrorBanner>}
 
       {/* Current status */}
-      <div className="flex gap-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-sand-200/70 animate-fade-up sm:p-5" key={status.title}>
+      <div className="surface-card flex gap-4 rounded-2xl p-4 animate-fade-up sm:p-5" key={status.title}>
         {(() => {
           const Icon = statusIcon(order)
           return (
@@ -124,7 +124,7 @@ export default function Track() {
         <p className="font-heading text-lg font-bold">{status.title}</p>
         <p className="mt-0.5 text-sm text-navy/70">{status.message}</p>
         {order.payment_method === 'cod' && order.order_status === 'processing' && (
-          <p className="mt-2 flex items-center gap-1.5 text-sm text-navy/65">
+          <p className="mt-2 flex items-center gap-1.5 text-sm text-navy/70">
             <Phone className="size-4" /> Please keep your phone nearby.
           </p>
         )}
@@ -140,7 +140,7 @@ export default function Track() {
 
       {/* Progress */}
       {order.order_status !== 'cancelled' && (
-        <ol className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-sand-200/70 sm:p-6">
+        <ol className="surface-card rounded-2xl p-5 sm:p-6">
           {steps.map((s, i) => (
             <li key={s.key} className="relative flex gap-4 pb-6 last:pb-0">
               {i < steps.length - 1 && (
@@ -149,15 +149,15 @@ export default function Track() {
               <span
                 className={cn(
                   'relative z-10 flex size-8 shrink-0 items-center justify-center rounded-full border-2 text-sm font-bold transition-colors',
-                  s.done ? 'border-brand bg-brand text-navy' : 'border-navy/15 bg-white text-navy/40',
-                  s.current && s.key !== 'delivered' && 'bg-white text-brand-600 ring-4 ring-brand/25',
+                  s.done ? 'border-brand bg-brand text-navy' : 'border-navy/15 bg-white text-navy/70',
+                  s.current && s.key !== 'delivered' && 'bg-white text-brand-ink ring-4 ring-brand/25',
                 )}
               >
                 {s.done && (!s.current || s.key === 'delivered') ? <Check className="size-4" strokeWidth={3} /> : s.current ? <span className="size-2.5 rounded-full bg-brand" /> : i + 1}
               </span>
               <div className="pt-1">
-                <p className={cn('text-sm font-semibold', !s.done && 'text-navy/45')}>{s.label}</p>
-                {s.at && s.done && <p className="text-xs text-navy/55">{formatDateTime(s.at)}</p>}
+                <p className={cn('text-sm font-semibold', !s.done && 'text-navy/70')}>{s.label}</p>
+                {s.at && s.done && <p className="text-xs text-navy/70">{formatDateTime(s.at)}</p>}
               </div>
             </li>
           ))}
@@ -165,15 +165,15 @@ export default function Track() {
       )}
 
       {/* Details */}
-      <div className="space-y-4 rounded-2xl bg-white ring-1 ring-sand-200/70 p-4 sm:p-5">
+      <div className="surface-card space-y-4 rounded-2xl p-4 sm:p-5">
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
-            <p className="text-xs text-navy/55">Delivery date & time</p>
+            <p className="text-xs text-navy/70">Delivery date & time</p>
             <p className="font-semibold">{formatDate(order.delivery_date)}</p>
             <p className="text-navy/70">{slotLabel(order.delivery_slot)}</p>
           </div>
           <div>
-            <p className="text-xs text-navy/55">Payment method</p>
+            <p className="text-xs text-navy/70">Payment method</p>
             <div className="mt-1 flex items-center gap-2">
               <PaymentLogo method={order.payment_method} className="h-8 w-12 rounded-lg" />
               <p className="min-w-0 font-semibold">{PAYMENT_METHOD_LABEL[order.payment_method]}</p>
@@ -181,7 +181,7 @@ export default function Track() {
             {order.gcash_reference && <p className="mt-1 break-all text-navy/70">Ref: {order.gcash_reference}</p>}
           </div>
           <div className="col-span-2">
-            <p className="text-xs text-navy/55">Deliver to</p>
+            <p className="text-xs text-navy/70">Deliver to</p>
             <p className="font-semibold">{order.customer_name}</p>
             <p className="text-navy/70">
               {order.address}, {order.barangay}, {order.city}
@@ -194,7 +194,7 @@ export default function Track() {
       </div>
 
       {/* History */}
-      <div className="rounded-2xl bg-white ring-1 ring-sand-200/70 p-4 sm:p-5">
+      <div className="surface-card rounded-2xl p-4 sm:p-5">
         <h2 className="mb-3 font-heading font-bold">Order history</h2>
         <ul className="space-y-3">
           {[...order.history].reverse().map((h, i) => (
@@ -203,7 +203,7 @@ export default function Track() {
               <div>
                 <p className="font-semibold">{historyLabel(h.status, order.payment_method)}</p>
                 {h.note && <p className="text-navy/70">{h.note}</p>}
-                <p className="text-xs text-navy/50">{formatDateTime(h.created_at)}</p>
+                <p className="text-xs text-navy/70">{formatDateTime(h.created_at)}</p>
               </div>
             </li>
           ))}
@@ -241,7 +241,7 @@ function Totals({ order }: { order: PublicOrder }) {
       ) : (
         <div className="flex justify-between">
           <span className="text-navy/70">Delivery fee</span>
-          <span className="text-navy/55">To be confirmed</span>
+          <span className="text-navy/70">To be confirmed</span>
         </div>
       )}
       <div className="flex justify-between pt-1 font-heading text-lg font-bold">
@@ -328,7 +328,7 @@ function ResubmitProof({ token, label, onDone }: { token: string; label: string;
     }
   }
   return (
-    <div className="space-y-3 rounded-2xl bg-white ring-1 ring-sand-200/70 p-4 sm:p-5">
+    <div className="surface-card space-y-3 rounded-2xl p-4 sm:p-5">
       <h2 className="font-heading font-bold">Upload a new {label} payment proof</h2>
       <Field label={`${label} Reference No.`} required>
         <Input value={ref} onChange={(e) => setRef(e.target.value)} inputMode="numeric" placeholder="e.g. 1234 567 890123" />
@@ -339,7 +339,7 @@ function ResubmitProof({ token, label, onDone }: { token: string; label: string;
         </span>
         <span className="text-sm">
           <span className="block font-semibold">{file ? file.name : 'Upload new screenshot'}</span>
-          <span className="block text-xs text-navy/55">JPG or PNG</span>
+          <span className="block text-xs text-navy/70">JPG or PNG</span>
         </span>
         <input type="file" accept="image/*" className="sr-only" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
       </label>

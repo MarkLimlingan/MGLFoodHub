@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { create } from 'zustand'
-import { BadgeCheck, Banknote, CalendarClock, PhoneCall, ReceiptText, Store, Truck } from 'lucide-react'
+import { BadgeCheck, Banknote, CalendarClock, Download, PhoneCall, ReceiptText, Store, Truck } from 'lucide-react'
 import { supabase, supabaseConfigured } from '@/lib/supabase'
 import { GOOGLE_RETURN_KEY } from '@/lib/google'
+import { storage } from '@/lib/utils'
+import { useInstallApp } from './InstallApp'
 import { Button } from './ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from './ui/dialog'
 
@@ -23,9 +25,12 @@ export const useGuidelines = create<{ open: boolean; setOpen: (o: boolean) => vo
   setOpen: (open) => set({ open }),
 }))
 
+/** Remembered per device, so returning customers aren't stopped every visit. */
+const SEEN_KEY = 'mgl_guidelines_seen_v1'
+
 /**
- * Pops up every time the site is loaded or reloaded (any customer page).
- * Moving between pages inside the site doesn't re-open it.
+ * Pops up on a customer's first visit on this device. After that it opens only from
+ * Help (phones) or Guidelines (header/footer), and checkout lists the same points.
  */
 export function OrderingGuidelines() {
   const { open, setOpen } = useGuidelines()
@@ -40,7 +45,7 @@ export function OrderingGuidelines() {
     } catch {
       /* storage blocked: show it */
     }
-    if (!returning) setOpen(true)
+    if (!returning && !storage.get(SEEN_KEY, false)) setOpen(true)
   }, [setOpen])
 
   useEffect(() => {
@@ -51,7 +56,11 @@ export function OrderingGuidelines() {
     })
   }, [])
 
-  const close = () => setOpen(false)
+  const { installed, install } = useInstallApp()
+  const close = () => {
+    storage.set(SEEN_KEY, true)
+    setOpen(false)
+  }
 
   return (
     <Dialog open={open} onOpenChange={(o) => (o ? setOpen(true) : close())}>
@@ -61,14 +70,14 @@ export function OrderingGuidelines() {
           <div className="pointer-events-none absolute -right-10 -top-10 size-36 rounded-full bg-[#f6dcae]" />
           <img src="/logo.png" alt="" className="relative mb-2 h-12 w-auto rounded-xl bg-white p-1 shadow-sm sm:h-14" />
           <DialogTitle className="relative pr-0 font-display text-2xl font-bold sm:text-[1.7rem]">Ordering Guidelines</DialogTitle>
-          <DialogDescription className="relative text-navy/60">Please read before placing your order. Salamat po!</DialogDescription>
+          <DialogDescription className="relative text-navy/70">Please read before placing your order. Salamat po!</DialogDescription>
         </div>
         <ol className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-5 pb-7 pt-4 [mask-image:linear-gradient(to_bottom,black_calc(100%-1.75rem),transparent)] sm:px-6">
           {items.map((text, i) => {
             const Icon = ICONS[i] ?? BadgeCheck
             return (
               <li key={i} className="flex gap-3 animate-fade-up" style={{ animationDelay: `${i * 50}ms` }}>
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-sand text-brand-600">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-sand text-brand-ink">
                   <Icon className="size-[18px]" strokeWidth={1.8} />
                 </span>
                 <p className="pt-2 text-sm leading-relaxed text-navy/80">
@@ -83,6 +92,18 @@ export function OrderingGuidelines() {
           <Button size="lg" className="w-full" onClick={close} autoFocus>
             I understand, start ordering
           </Button>
+          {!installed && (
+            <Button
+              variant="ghost"
+              className="mt-2 w-full"
+              onClick={() => {
+                close()
+                void install()
+              }}
+            >
+              <Download /> Install the app on your home screen
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>

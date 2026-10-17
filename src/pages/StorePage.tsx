@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, BookOpen, Clock, Info, MapPin, MessageCircle, Store as StoreIcon } from 'lucide-react'
+import { CalendarClock, ArrowLeft, BookOpen, Clock, Info, MapPin, MessageCircle, Store as StoreIcon } from 'lucide-react'
 import { useCatalog } from '@/hooks/useCatalog'
-import { cn, formatHours, isOpenNow } from '@/lib/utils'
+import { cn, formatHours } from '@/lib/utils'
+import { useEarliestDelivery } from '@/hooks/useEarliestDelivery'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/controls'
 import { Disclaimer, EmptyState, Lightbox, SmartImage } from '@/components/common'
@@ -14,6 +15,7 @@ export default function StorePage() {
   const [params] = useSearchParams()
   const focusProduct = params.get('p')
   const cat = useCatalog()
+  const earliest = useEarliestDelivery()
   const store = cat.storeBySlug.get(slug)
   const sections = store ? (cat.sectionsByStore.get(store.id) ?? []) : []
   const [menuOpen, setMenuOpen] = useState(false)
@@ -60,10 +62,10 @@ export default function StorePage() {
 
   if (cat.loading) {
     return (
-      <div className="mx-auto max-w-7xl space-y-4 px-3 py-6 sm:px-4">
-        <Skeleton className="h-52 w-full rounded-3xl" />
+      <div className="mx-auto max-w-[110rem] space-y-4 px-3 py-6 sm:px-4 lg:px-6">
+        <Skeleton className="h-52 w-full rounded-[2rem]" />
         <Skeleton className="h-10 w-2/3" />
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-64 rounded-2xl" />
           ))}
@@ -80,29 +82,28 @@ export default function StorePage() {
     )
   }
 
-  const open = isOpenNow(store.open_time, store.close_time)
   const category = cat.categoryById.get(store.hub_category_id)
 
   return (
     <div>
       {/* Header — light rounded hero card, like the reference */}
-      <div className="mx-auto max-w-7xl px-3 pt-4 sm:px-4 sm:pt-6">
-        <Link to="/" className="inline-flex items-center gap-1.5 text-sm font-medium text-navy/70 hover:text-brand-600">
+      <div className="mx-auto max-w-[110rem] px-3 pt-4 sm:px-4 lg:px-6 sm:pt-6">
+        <Link to="/" className="inline-flex items-center gap-1.5 text-sm font-medium text-navy/70 hover:text-brand-ink">
           <ArrowLeft className="size-4" /> All stores
         </Link>
-        <section className="relative mt-3 overflow-hidden rounded-[2rem] bg-[#fdf3e3]">
+        <section className="neu-raised relative mt-3 overflow-hidden rounded-[2rem]">
           <div className="pointer-events-none absolute -right-20 top-0 hidden h-full w-[40%] rounded-l-[45%] bg-[#f6dcae] sm:block" />
           <div className="relative flex flex-col gap-6 p-4 sm:flex-row sm:items-center sm:p-6">
             <div className="min-w-0 flex-1 animate-fade-up">
-              {category && <p className="text-xs font-semibold uppercase tracking-[0.25em] text-navy/60">{category.name}</p>}
+              {category && <p className="text-xs font-semibold uppercase tracking-[0.25em] text-navy/70">{category.name}</p>}
               <h1 className="mt-2 font-display text-[2.2rem] font-bold leading-tight sm:text-5xl">{store.name}</h1>
               {store.tagline && <p className="mt-2 text-navy/70">{store.tagline}</p>}
               <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-navy/75">
-                <span className="inline-flex items-center gap-1.5">
+                <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
                   <Clock className="size-4" /> {formatHours(store.open_time, store.close_time)}
-                  <span className={cn('ml-1 rounded-full px-2 py-0.5 text-[11px] font-bold', open ? 'bg-emerald-100 text-emerald-700' : 'bg-white text-navy/55')}>
-                    {open ? 'Open now' : 'Closed now'}
-                  </span>
+                </span>
+                <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-white px-2 py-0.5 text-[11px] font-bold text-navy">
+                  <CalendarClock className="size-3 text-brand-ink" aria-hidden /> Earliest delivery {earliest ?? 'tomorrow'}
                 </span>
                 {store.address && (
                   <span className="inline-flex items-center gap-1.5">
@@ -122,7 +123,7 @@ export default function StorePage() {
             <button
               type="button"
               onClick={() => setMenuOpen(true)}
-              className="group relative mx-auto w-40 shrink-0 -rotate-3 overflow-hidden rounded-3xl shadow-xl shadow-navy/15 ring-4 ring-white transition-transform hover:rotate-0 sm:mx-0 sm:w-48"
+              className="group relative mx-auto w-40 shrink-0 -rotate-3 overflow-hidden rounded-2xl shadow-xl shadow-navy/15 ring-4 ring-white transition-transform hover:rotate-0 sm:mx-0 sm:w-48"
               aria-label="View original menu"
             >
               <SmartImage src={store.menu_image_url} alt={`${store.name} menu`} className="aspect-[3/4] w-full object-top" />
@@ -133,7 +134,7 @@ export default function StorePage() {
       </div>
 
       {!store.is_accepting_orders && (
-        <div className="mx-auto mt-4 max-w-7xl px-3 sm:px-4"><div className="rounded-2xl bg-brand-red px-4 py-3 text-center text-sm font-semibold text-white">
+        <div className="mx-auto mt-4 max-w-[110rem] px-3 sm:px-4 lg:px-6"><div className="rounded-2xl bg-brand-red px-4 py-3 text-center text-sm font-semibold text-white">
           {store.name} is temporarily unavailable. You can browse the menu, but items can't be added right now.
         </div></div>
       )}
@@ -141,7 +142,7 @@ export default function StorePage() {
       {/* Sticky section tabs */}
       {sections.length > 1 && (
         <div className="sticky top-16 z-30 mt-4 md:top-[68px] border-b border-sand-200/70 bg-cream/95 backdrop-blur">
-          <div ref={tabsRef} className="mx-auto flex max-w-7xl gap-1.5 overflow-x-auto px-3 py-2.5 scrollbar-none sm:px-4">
+          <div ref={tabsRef} className="mx-auto flex max-w-[110rem] gap-1.5 overflow-x-auto px-3 py-2.5 scrollbar-none sm:px-4 lg:px-6">
             {sections.map((s) => (
               <a
                 key={s.id}
@@ -153,7 +154,7 @@ export default function StorePage() {
                 }}
                 className={cn(
                   'shrink-0 rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors',
-                  active === s.id ? 'bg-brand text-navy shadow-sm' : 'bg-white text-navy/70 ring-1 ring-sand-200 hover:text-brand-600',
+                  active === s.id ? 'bg-brand text-navy shadow-sm' : 'bg-white text-navy/70 ring-1 ring-sand-200 hover:text-brand-ink',
                 )}
               >
                 {s.name}
@@ -163,21 +164,21 @@ export default function StorePage() {
         </div>
       )}
 
-      <div className="mx-auto max-w-7xl space-y-10 px-3 py-6 sm:px-4">
+      <div className="mx-auto max-w-[110rem] space-y-10 px-3 py-6 sm:px-4 lg:px-6">
         {sections.map((section) => {
           const products = cat.productsBySection.get(section.id) ?? []
           return (
             <section key={section.id} id={`section-${section.id}`} className="scroll-mt-32">
               <Reveal className="mb-3 flex items-baseline justify-between gap-3">
                 <h2 className="font-display text-2xl font-bold sm:text-3xl">{section.name}</h2>
-                <span className="shrink-0 text-xs text-navy/50">{products.length} {products.length === 1 ? 'item' : 'items'}</span>
+                <span className="shrink-0 text-xs text-navy/70">{products.length} {products.length === 1 ? 'item' : 'items'}</span>
               </Reveal>
               {section.note && (
-                <p className="mb-3 flex items-center gap-1.5 text-sm text-navy/65">
-                  <Info className="size-4 text-brand-600" /> {section.note}
+                <p className="mb-3 flex items-center gap-1.5 text-sm text-navy/70">
+                  <Info className="size-4 text-brand-ink" /> {section.note}
                 </p>
               )}
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
                 {products.map((p, i) => (
                   // Dishes in the same row arrive a beat apart.
                   <Reveal key={p.id} delay={(i % 3) * 70} className="flex [&>article]:w-full">

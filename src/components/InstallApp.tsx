@@ -67,7 +67,7 @@ export function InstallDialog() {
         <ol className="mt-5 space-y-3">
           {STEPS[platform].map(({ icon: Icon, text }, i) => (
             <li key={i} className="flex items-start gap-3 text-sm text-navy/80">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-sand text-brand-600">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-sand text-brand-ink">
                 <Icon className="size-[18px]" />
               </span>
               <span className="pt-2">{text}</span>
@@ -124,7 +124,7 @@ export function InstallNavButton() {
     <button
       type="button"
       onClick={() => void install()}
-      className="flex items-center gap-2 rounded-full border border-navy/15 bg-white py-1 pl-1 pr-3.5 text-sm font-semibold text-navy transition hover:border-brand hover:text-brand-600 active:scale-95"
+      className="flex items-center gap-2 rounded-full border border-navy/15 bg-white py-1 pl-1 pr-3.5 text-sm font-semibold text-navy transition hover:border-brand hover:text-brand-ink active:scale-95"
     >
       <img src="/icon-192.png" alt="" className="size-8 rounded-[9px] ring-1 ring-navy/10" />
       Install App

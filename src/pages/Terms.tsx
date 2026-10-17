@@ -15,7 +15,7 @@ export function LegalSection({ id, title, children }: { id?: string; title: stri
 
 export function MessageLink({ children }: { children: ReactNode }) {
   return (
-    <a href={OWNER_MESSAGE_URL} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-600 underline underline-offset-2">
+    <a href={OWNER_MESSAGE_URL} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand-ink underline underline-offset-2">
       {children}
     </a>
   )
@@ -28,7 +28,7 @@ export default function Terms() {
   }, [])
   return (
     <PageShell title="Terms of Service" subtitle="Last updated October 14, 2026" icon={<ScrollText />}>
-      <div className="space-y-6 rounded-2xl bg-white p-5 text-sm leading-relaxed text-navy/80 shadow-sm ring-1 ring-sand-200/70 sm:p-8 sm:text-[15px]">
+      <div className="surface-card space-y-6 rounded-2xl p-5 text-sm leading-relaxed text-navy/80 sm:p-8 sm:text-[15px]">
         <p>These terms apply when you order through the MGL Food Hub website. By placing an order, you agree to them.</p>
 
         <LegalSection title="Orders">
@@ -65,7 +65,7 @@ export default function Terms() {
           <p>
             We may ask you to sign in with your Google (Gmail) account before you order. We use it only to confirm you are a real customer and to stop fake and scam
             orders. See our{' '}
-            <Link to="/privacy" className="font-semibold text-brand-600 underline underline-offset-2">
+            <Link to="/privacy" className="font-semibold text-brand-ink underline underline-offset-2">
               Privacy Policy
             </Link>{' '}
             for what we receive.

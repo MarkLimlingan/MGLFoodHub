@@ -58,21 +58,44 @@ function takeReturnError(): string | null {
 // Read once when the site loads, so whichever part of the page asks first doesn't swallow it for the rest.
 const returnError = typeof window === 'undefined' ? null : takeReturnError()
 
+// Google comes back with ?code=… (PKCE). supabase-js swaps it for a session on load, using a secret it saved
+// in this browser before leaving. Remember the code was here, so a failed swap isn't silent.
+const returnedWithCode = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('code')
+
+/** Why a return from Google didn't sign the customer in, in plain words. */
+function unfinishedMessage(detail?: string): string {
+  // No swap was even attempted: the secret saved before leaving isn't in this browser/address.
+  if (!detail) {
+    return `Google sign in came back to a different page than where it started, so it couldn't finish. Please tap Continue with Google again from ${window.location.host}.`
+  }
+  return `Google sign in didn't finish (${detail}). Please tap Continue with Google again.`
+}
+
 export function useGoogleLink() {
   const [user, setUser] = useState<User | null>(null)
   const [ready, setReady] = useState(false)
   const [error, setError] = useState<string | null>(returnError)
 
   useEffect(() => {
-    void supabase.auth.getSession().then(({ data }) => {
-      setUser(data.session?.user ?? null)
+    let alive = true
+    // initialize() settles after supabase-js has handled any ?code=… from Google, and returns its error if the swap failed.
+    void supabase.auth.initialize().then(async ({ error: initError }) => {
+      const { data } = await supabase.auth.getSession()
+      if (!alive) return
+      const u = data.session?.user ?? null
+      setUser(u)
       setReady(true)
+      if (initError) setError(unfinishedMessage(initError.message))
+      else if (returnedWithCode && !googleProfile(u)) setError(unfinishedMessage())
     })
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
       setReady(true)
     })
-    return () => sub.subscription.unsubscribe()
+    return () => {
+      alive = false
+      sub.subscription.unsubscribe()
+    }
   }, [])
 
   /** Leaves the site for Google and comes back to checkout. */
