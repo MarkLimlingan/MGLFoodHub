@@ -58,7 +58,7 @@ export default function Track() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-2xl space-y-4 px-4 py-8">
+      <div className="mx-auto max-w-2xl space-y-4 px-3 sm:px-4 py-8">
         <Skeleton className="h-10 w-1/2" />
         <Skeleton className="h-32" />
         <Skeleton className="h-64" />
@@ -91,7 +91,7 @@ export default function Track() {
   const needsProof = isOnline(order.payment_method) && order.payment_status === 'rejected' && order.order_status === 'processing'
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5 px-4 py-8 sm:py-12">
+    <div className="mx-auto max-w-2xl space-y-5 px-3 sm:px-4 py-8 sm:py-12">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="font-display text-3xl font-bold sm:text-4xl">Track Your Order</h1>

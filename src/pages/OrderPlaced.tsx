@@ -25,7 +25,7 @@ export default function OrderPlaced() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-2xl space-y-4 px-4 py-10">
+      <div className="mx-auto max-w-2xl space-y-4 px-3 sm:px-4 py-10">
         <Skeleton className="h-24" />
         <Skeleton className="h-64" />
       </div>
@@ -36,7 +36,7 @@ export default function OrderPlaced() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5 px-4 py-8 sm:py-12">
+    <div className="mx-auto max-w-2xl space-y-5 px-3 sm:px-4 py-8 sm:py-12">
       {error && <ErrorBanner>{error}</ErrorBanner>}
       <div className="relative overflow-hidden rounded-[2rem] bg-white px-5 pb-8 pt-10 text-center shadow-sm ring-1 ring-sand-200/70 animate-fade-up">
         {/* Confetti doodles like the reference */}

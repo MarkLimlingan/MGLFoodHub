@@ -100,7 +100,23 @@
   }
 }
 
+/* Scroll reveal (src/components/Reveal.tsx): fade up once as content enters the screen.
+   With reduced motion, the rule above makes it instant. */
+[data-reveal] {
+  transition:
+    opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0ms),
+    transform 0.6s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0ms);
+}
+[data-reveal]:not([data-revealed]) {
+  opacity: 0;
+  transform: translateY(16px);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal]:not([data-revealed]) { transform: none; }
+}
+
 @media print {
+  [data-reveal] { opacity: 1 !important; transform: none !important; }
   .no-print { display: none !important; }
   body { background: white; }
   .print-break { break-inside: avoid; }

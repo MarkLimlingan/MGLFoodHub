@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/controls'
 import { Disclaimer, EmptyState, Lightbox, SmartImage } from '@/components/common'
 import { ProductCard } from '@/components/ProductCard'
+import { Reveal } from '@/components/Reveal'
 
 export default function StorePage() {
   const { slug = '' } = useParams()
@@ -59,7 +60,7 @@ export default function StorePage() {
 
   if (cat.loading) {
     return (
-      <div className="mx-auto max-w-6xl space-y-4 px-4 py-6">
+      <div className="mx-auto max-w-7xl space-y-4 px-3 py-6 sm:px-4">
         <Skeleton className="h-52 w-full rounded-3xl" />
         <Skeleton className="h-10 w-2/3" />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -85,13 +86,13 @@ export default function StorePage() {
   return (
     <div>
       {/* Header — light rounded hero card, like the reference */}
-      <div className="mx-auto max-w-6xl px-4 pt-4 sm:pt-6">
+      <div className="mx-auto max-w-7xl px-3 pt-4 sm:px-4 sm:pt-6">
         <Link to="/" className="inline-flex items-center gap-1.5 text-sm font-medium text-navy/70 hover:text-brand-600">
           <ArrowLeft className="size-4" /> All stores
         </Link>
         <section className="relative mt-3 overflow-hidden rounded-[2rem] bg-[#fdf3e3]">
           <div className="pointer-events-none absolute -right-20 top-0 hidden h-full w-[40%] rounded-l-[45%] bg-[#f6dcae] sm:block" />
-          <div className="relative flex flex-col gap-6 p-5 sm:flex-row sm:items-center sm:p-8">
+          <div className="relative flex flex-col gap-6 p-4 sm:flex-row sm:items-center sm:p-6">
             <div className="min-w-0 flex-1 animate-fade-up">
               {category && <p className="text-xs font-semibold uppercase tracking-[0.25em] text-navy/60">{category.name}</p>}
               <h1 className="mt-2 font-display text-[2.2rem] font-bold leading-tight sm:text-5xl">{store.name}</h1>
@@ -132,7 +133,7 @@ export default function StorePage() {
       </div>
 
       {!store.is_accepting_orders && (
-        <div className="mx-auto mt-4 max-w-6xl px-4"><div className="rounded-2xl bg-brand-red px-4 py-3 text-center text-sm font-semibold text-white">
+        <div className="mx-auto mt-4 max-w-7xl px-3 sm:px-4"><div className="rounded-2xl bg-brand-red px-4 py-3 text-center text-sm font-semibold text-white">
           {store.name} is temporarily unavailable. You can browse the menu, but items can't be added right now.
         </div></div>
       )}
@@ -140,7 +141,7 @@ export default function StorePage() {
       {/* Sticky section tabs */}
       {sections.length > 1 && (
         <div className="sticky top-16 z-30 mt-4 md:top-[68px] border-b border-sand-200/70 bg-cream/95 backdrop-blur">
-          <div ref={tabsRef} className="mx-auto flex max-w-6xl gap-1.5 overflow-x-auto px-4 py-2.5 scrollbar-none">
+          <div ref={tabsRef} className="mx-auto flex max-w-7xl gap-1.5 overflow-x-auto px-3 py-2.5 scrollbar-none sm:px-4">
             {sections.map((s) => (
               <a
                 key={s.id}
@@ -162,23 +163,26 @@ export default function StorePage() {
         </div>
       )}
 
-      <div className="mx-auto max-w-6xl space-y-10 px-4 py-6">
+      <div className="mx-auto max-w-7xl space-y-10 px-3 py-6 sm:px-4">
         {sections.map((section) => {
           const products = cat.productsBySection.get(section.id) ?? []
           return (
             <section key={section.id} id={`section-${section.id}`} className="scroll-mt-32">
-              <div className="mb-3 flex items-baseline justify-between gap-3">
+              <Reveal className="mb-3 flex items-baseline justify-between gap-3">
                 <h2 className="font-display text-2xl font-bold sm:text-3xl">{section.name}</h2>
                 <span className="shrink-0 text-xs text-navy/50">{products.length} {products.length === 1 ? 'item' : 'items'}</span>
-              </div>
+              </Reveal>
               {section.note && (
                 <p className="mb-3 flex items-center gap-1.5 text-sm text-navy/65">
                   <Info className="size-4 text-brand-600" /> {section.note}
                 </p>
               )}
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {products.map((p) => (
-                  <ProductCard key={p.id} product={p} store={store} section={section} catalog={cat} highlight={p.id === focusProduct} />
+                {products.map((p, i) => (
+                  // Dishes in the same row arrive a beat apart.
+                  <Reveal key={p.id} delay={(i % 3) * 70} className="flex [&>article]:w-full">
+                    <ProductCard product={p} store={store} section={section} catalog={cat} highlight={p.id === focusProduct} />
+                  </Reveal>
                 ))}
               </div>
             </section>

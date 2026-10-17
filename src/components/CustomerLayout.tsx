@@ -1,6 +1,6 @@
 import { Suspense, useEffect, type ReactNode } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
-import { ArrowRight, Banknote, ClipboardList, Home, Info, Leaf, Search, ShoppingBag, Store as StoreIcon, type LucideIcon } from 'lucide-react'
+import { ArrowRight, Banknote, ClipboardList, Home, Info, Search, ShoppingBag, Store as StoreIcon, type LucideIcon } from 'lucide-react'
 import { useCartView, useCatalog } from '@/hooks/useCatalog'
 import { cn, peso } from '@/lib/utils'
 import { ONLINE_METHODS, PAYMENT_LOGO, PAYMENT_METHOD_LABEL } from '@/lib/orderStatus'
@@ -52,7 +52,7 @@ function Navbar() {
   const openGuidelines = useGuidelines((s) => s.setOpen)
   return (
     <header className="sticky top-0 z-40 border-b border-sand-200/70 bg-white/95 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-center gap-3 px-4 md:h-[68px] md:justify-between">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-center gap-3 px-3 sm:px-4 md:h-[68px] md:justify-between">
         <Link to="/" className="shrink-0" aria-label="MGL Food Hub home">
           <Logo className="h-11 md:h-12" />
         </Link>
@@ -152,40 +152,46 @@ function MobileNav() {
   )
 }
 
+/** Light cream footer: navy text, orange accents (dots, underlines, divider). */
 function Footer() {
   const { categories } = useCatalog()
   const openGuidelines = useGuidelines((s) => s.setOpen)
-  const heading = 'mb-3 font-heading text-sm font-semibold text-white'
-  const item = 'block py-1 text-sm text-white/65 transition hover:text-brand'
+  const heading = 'mb-3 flex items-center gap-2 font-heading text-sm font-semibold text-navy'
+  const dot = <span className="size-1.5 rounded-full bg-brand" aria-hidden />
+  // navy/75 keeps links readable on sand (5.8:1); hover adds an orange underline.
+  const item =
+    'block w-fit py-1 text-sm text-navy/75 underline-offset-4 transition-colors hover:text-navy hover:underline hover:decoration-brand hover:decoration-2'
   return (
-    <footer className="mx-auto mt-16 w-full max-w-6xl px-0 sm:px-4 sm:pb-6">
-      <div className="relative overflow-hidden bg-navy text-white sm:rounded-3xl">
-        <Leaf className="pointer-events-none absolute -bottom-6 -right-6 size-40 rotate-12 text-white/[0.06]" strokeWidth={1} aria-hidden />
-        <div className="relative grid grid-cols-2 gap-x-6 gap-y-8 px-6 py-10 sm:px-10 lg:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))]">
+    <footer className="mx-auto mt-16 w-full max-w-7xl px-0 sm:px-4 sm:pb-6">
+      <div className="relative overflow-hidden bg-sand text-navy ring-1 ring-sand-200 sm:rounded-3xl">
+        <div className="relative grid grid-cols-2 gap-x-6 gap-y-8 px-4 py-10 sm:px-8 lg:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))]">
           <div className="col-span-2 space-y-4 lg:col-span-1">
-            <Logo light className="h-16 rounded-xl p-1.5" />
-            <p className="font-script text-2xl text-brand">Good food, on schedule.</p>
-            <p className="max-w-xs text-sm text-white/65">13 Malabon favorites in one cart, with scheduled delivery straight to your door.</p>
-            <div className="flex flex-wrap gap-2 text-xs">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5">
-                <Banknote className="size-3.5" /> Cash on Delivery
-              </span>
-              {ONLINE_METHODS.map((m) => (
-                <span key={m} className="inline-flex h-[30px] items-center rounded-full bg-white px-3" title={PAYMENT_METHOD_LABEL[m]}>
-                  <img src={PAYMENT_LOGO[m]} alt={PAYMENT_METHOD_LABEL[m]} className="h-4 w-auto max-w-16 object-contain" />
+            <Logo className="h-16" />
+            <p className="font-script text-[1.75rem] leading-none text-navy">Good food, on schedule.</p>
+            <p className="max-w-xs text-sm text-navy/75">13 Malabon favorites in one cart, with scheduled delivery straight to your door.</p>
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-navy/70">We accept</p>
+              <div className="flex flex-wrap gap-2 text-xs">
+                <span className="inline-flex h-[30px] items-center gap-1.5 rounded-full bg-white px-3 font-medium text-navy ring-1 ring-sand-200">
+                  <Banknote className="size-3.5 text-emerald-600" /> Cash on Delivery
                 </span>
-              ))}
+                {ONLINE_METHODS.map((m) => (
+                  <span key={m} className="inline-flex h-[30px] items-center rounded-full bg-white px-3 ring-1 ring-sand-200" title={PAYMENT_METHOD_LABEL[m]}>
+                    <img src={PAYMENT_LOGO[m]} alt={PAYMENT_METHOD_LABEL[m]} className="h-4 w-auto max-w-16 object-contain" />
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
           <div>
-            <p className={heading}>Quick Links</p>
+            <p className={heading}>{dot}Quick Links</p>
             <Link to="/" className={item}>Home</Link>
             <Link to="/#stores" className={item}>All stores</Link>
             <Link to="/cart" className={item}>Cart</Link>
             <Link to="/checkout" className={item}>Checkout</Link>
           </div>
           <div>
-            <p className={heading}>Your Orders</p>
+            <p className={heading}>{dot}Your Orders</p>
             <Link to="/my-orders" className={item}>My orders on this device</Link>
             <Link to="/find-order" className={item}>Find my order</Link>
             <button type="button" onClick={() => openGuidelines(true)} className={cn(item, 'text-left')}>
@@ -194,7 +200,7 @@ function Footer() {
             <InstallLink className={cn(item, 'text-left')} />
           </div>
           <div className="col-span-2 sm:col-span-1">
-            <p className={heading}>Categories</p>
+            <p className={heading}>{dot}Categories</p>
             <div className="grid grid-cols-2 gap-x-4 sm:grid-cols-1">
               {categories.map((c) => (
                 <Link key={c.id} to={`/?cat=${c.slug}#stores`} className={item}>
@@ -204,14 +210,15 @@ function Footer() {
             </div>
           </div>
         </div>
-        <div className="relative border-t border-white/10 px-6 py-5 sm:px-10">
-          <p className="max-w-3xl text-xs leading-relaxed text-white/45">{DELIVERY_DISCLAIMER}</p>
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-white/55">
+        <div className="relative px-4 pb-6 sm:px-8">
+          <div className="h-px bg-gradient-to-r from-brand/70 via-brand/30 to-transparent" aria-hidden />
+          <p className="mt-5 max-w-3xl text-xs leading-relaxed text-navy/70">{DELIVERY_DISCLAIMER}</p>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-navy/75">
             <span>© {new Date().getFullYear()} MGL Food Hub. All rights reserved.</span>
             <span className="flex flex-wrap gap-x-4 gap-y-1">
-              <Link to="/privacy" className="hover:text-brand">Privacy Policy</Link>
-              <Link to="/terms" className="hover:text-brand">Terms of Service</Link>
-              <button type="button" onClick={() => openGuidelines(true)} className="hover:text-brand">
+              <Link to="/privacy" className="underline-offset-4 hover:text-navy hover:underline hover:decoration-brand">Privacy Policy</Link>
+              <Link to="/terms" className="underline-offset-4 hover:text-navy hover:underline hover:decoration-brand">Terms of Service</Link>
+              <button type="button" onClick={() => openGuidelines(true)} className="underline-offset-4 hover:text-navy hover:underline hover:decoration-brand">
                 Ordering guidelines
               </button>
             </span>
@@ -284,7 +291,7 @@ export function CustomerLayout() {
 
 export function PageShell({ title, subtitle, children, icon }: { title: string; subtitle?: string; children: ReactNode; icon?: ReactNode }) {
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8 sm:py-12">
+    <div className="mx-auto max-w-3xl px-3 py-8 sm:px-4 sm:py-12">
       <div className="mb-7 flex items-start gap-3 animate-fade-up">
         {icon && <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-sand text-brand-600 [&_svg]:size-5">{icon}</div>}
         <div>
@@ -299,7 +306,7 @@ export function PageShell({ title, subtitle, children, icon }: { title: string; 
 
 function PageLoading() {
   return (
-    <div className="mx-auto max-w-3xl space-y-4 px-4 py-10">
+    <div className="mx-auto max-w-3xl space-y-4 px-3 py-10 sm:px-4">
       <Skeleton className="h-9 w-1/2" />
       <Skeleton className="h-40" />
       <Skeleton className="h-64" />

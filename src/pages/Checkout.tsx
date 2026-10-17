@@ -297,7 +297,7 @@ export default function Checkout() {
   ]
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:py-12">
+    <div className="mx-auto max-w-7xl px-3 py-8 sm:px-4 sm:py-12">
       <h1 className="font-display text-3xl font-bold sm:text-4xl">Checkout</h1>
       <p className="mt-1.5 text-sm text-navy/60">
         Scheduled delivery only. The earliest is tomorrow. {requireGoogle ? 'Orders are verified with Google.' : 'No account needed.'}

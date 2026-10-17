@@ -2,7 +2,7 @@ import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   ArrowRight, Banknote, Beef, CakeSlice, CalendarClock, ChevronRight, Clock, CookingPot, Flame, LayoutGrid, MapPin, Radio, Sandwich,
-  Search, ShieldCheck, Soup, Store as StoreIcon, Truck, UtensilsCrossed, X, type LucideIcon,
+  Search, ShieldCheck, ShoppingBag, Soup, Store as StoreIcon, Truck, UtensilsCrossed, X, type LucideIcon,
 } from 'lucide-react'
 import { useCatalog } from '@/hooks/useCatalog'
 import type { Store } from '@/lib/types'
@@ -12,6 +12,7 @@ import { Skeleton } from '@/components/ui/controls'
 import { EmptyState, ErrorBanner, SmartImage } from '@/components/common'
 import { Logo } from '@/components/Logo'
 import { InstallBanner } from '@/components/InstallApp'
+import { Reveal } from '@/components/Reveal'
 
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
@@ -72,13 +73,13 @@ export default function Home() {
   const activeCategory = cat.categoryById.get(category)
 
   return (
-    <div className="mx-auto max-w-6xl px-4">
+    <div className="mx-auto max-w-7xl px-3 sm:px-4">
       <InstallBanner className="mt-4" />
 
       {/* ------------------------------------------------------------ Hero */}
       <section className="relative mt-4 overflow-hidden rounded-[2rem] bg-[#fdf3e3] sm:mt-6">
         <div className="pointer-events-none absolute -right-24 top-0 hidden h-full w-[55%] rounded-l-[45%] bg-[#f6dcae] md:block" />
-        <div className="relative grid grid-cols-1 items-center gap-8 px-5 py-10 sm:px-10 sm:py-14 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+        <div className="relative grid grid-cols-1 items-center gap-8 px-4 py-10 sm:px-8 sm:py-14 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
           <div className="animate-fade-up">
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-navy/70">Scheduled Food Delivery</p>
             <h1 className="mt-4 font-display text-[2.4rem] font-bold leading-[1.06] text-navy sm:text-[3rem] lg:text-[3.35rem]">
@@ -147,8 +148,8 @@ export default function Home() {
       </section>
 
       {/* ------------------------------------------------------------ Categories */}
-      <section className="mt-10" aria-label="Categories">
-        <div className="-mx-4 flex gap-4 overflow-x-auto px-4 pb-2 scrollbar-none sm:gap-6 lg:justify-between">
+      <Reveal className="mt-10" role="region" aria-label="Categories">
+        <div className="-mx-3 flex gap-4 overflow-x-auto px-3 pb-2 scrollbar-none sm:-mx-4 sm:gap-6 sm:px-4 lg:justify-between">
           <CategoryTile icon={LayoutGrid} label="All stores" active={category === 'all'} onClick={() => pickCategory('all')} />
           {cat.categories.map((c) => (
             <CategoryTile
@@ -160,7 +161,7 @@ export default function Home() {
             />
           ))}
         </div>
-      </section>
+      </Reveal>
 
       {/* ------------------------------------------------------------ Stores / search results */}
       <section id="stores" className="mt-12 scroll-mt-24">
@@ -206,7 +207,7 @@ export default function Home() {
           </div>
         ) : (
           <>
-            <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+            <Reveal className="mb-5 flex flex-wrap items-end justify-between gap-3">
               <div>
                 <h2 className="font-display text-3xl font-bold sm:text-4xl">{activeCategory ? activeCategory.name : 'Our Partner Stores'}</h2>
                 <p className="mt-1 text-sm text-navy/55">{stores.length} {stores.length === 1 ? 'store' : 'stores'} · schedule your delivery from tomorrow</p>
@@ -216,40 +217,24 @@ export default function Home() {
                   View All <ArrowRight className="size-4" />
                 </button>
               )}
-            </div>
+            </Reveal>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4">
               {cat.loading
                 ? Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="h-72 rounded-2xl" />)
-                : stores.map((s, i) => <StoreCard key={s.id} store={s} index={i} category={cat.categoryById.get(s.hub_category_id)?.name} />)}
+                : stores.map((s, i) => (
+                    // Cards in the same row arrive a beat apart.
+                    <Reveal key={s.id} delay={(i % 4) * 70} className="flex [&>a]:w-full">
+                      <StoreCard store={s} category={cat.categoryById.get(s.hub_category_id)?.name} />
+                    </Reveal>
+                  ))}
             </div>
             {!cat.loading && stores.length === 0 && !cat.error && <EmptyState title="No stores in this category yet" />}
           </>
         )}
       </section>
 
-      {/* ------------------------------------------------------------ Promo banner */}
-      <section className="relative mt-14 overflow-hidden rounded-[2rem] bg-[#fbe6c4]">
-        <div className="grid grid-cols-1 items-center md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          <div className="relative z-10 px-6 py-10 sm:px-10">
-            <h2 className="font-display text-3xl font-bold leading-tight sm:text-[2.6rem]">
-              Order from every store,
-              <br />
-              pay one delivery fee.
-            </h2>
-            <p className="mt-3 max-w-sm text-navy/70">Mix puto, pancit bilao and crispy pata from different merchants in one order.</p>
-            <Button size="lg" className="mt-6" onClick={goToStores}>
-              Start your order <ArrowRight />
-            </Button>
-          </div>
-          <div className="relative h-56 md:h-full md:min-h-72">
-            <SmartImage
-              src={cat.storeBySlug.get('okoy-ni-jay-r')?.cover_image_url}
-              alt="Okoy"
-              className="absolute inset-0 h-full w-full object-[50%_82%] md:rounded-l-[45%]"
-            />
-          </div>
-        </div>
-      </section>
+      {/* ------------------------------------------------------------ One cart banner */}
+      <OneCartBanner onStart={goToStores} />
 
       {/* ------------------------------------------------------------ Feature strip */}
       <section className="mt-10 grid grid-cols-1 gap-4 rounded-[2rem] bg-white/70 p-5 ring-1 ring-sand-200/70 sm:grid-cols-2 sm:p-7 lg:grid-cols-4">
@@ -258,8 +243,8 @@ export default function Home() {
           { icon: Banknote, t: 'COD or Online Payment', d: 'Pay cash to the rider (orders up to ₱2,000) or send via GCash, MariBank or GoTyme.' },
           { icon: Radio, t: 'Live Order Tracking', d: 'Your own private link shows every update.' },
           { icon: StoreIcon, t: 'One Delivery Fee', d: 'Order from all 13 merchants in one go.' },
-        ].map(({ icon: Icon, t, d }) => (
-          <div key={t} className="flex items-start gap-3">
+        ].map(({ icon: Icon, t, d }, i) => (
+          <Reveal key={t} delay={i * 70} className="flex items-start gap-3">
             <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-sand text-brand-600">
               <Icon className="size-5" strokeWidth={1.8} />
             </span>
@@ -267,10 +252,83 @@ export default function Home() {
               <p className="font-heading text-sm font-semibold">{t}</p>
               <p className="mt-0.5 text-xs leading-relaxed text-navy/55">{d}</p>
             </div>
-          </div>
+          </Reveal>
         ))}
       </section>
     </div>
+  )
+}
+
+/** Dishes shown in the "one cart" banner: real food photos from four different stores. */
+const ONE_CART_DISHES = [
+  { slug: 'judy-anns-crispy-pata', dish: 'Crispy Pata', src: '/products/judy-anns-crispy-pata.jpg' },
+  { slug: 'hazels-special-puto', dish: 'Puto Pao', src: '/products/hazels-puto-pao.jpg' },
+  { slug: 'okoy-ni-jay-r', dish: 'Okoy', src: '/products/okoy-ni-jay-r-regular-okoy.jpg' },
+  { slug: 'sisig-ni-mutik', dish: 'Crispy Sisig', src: '/products/sisig-ni-mutik-crispy-sisig.jpg' },
+]
+
+/** "Order from every store, pay one delivery fee": clean card, real dishes, one clear button. */
+function OneCartBanner({ onStart }: { onStart: () => void }) {
+  const cat = useCatalog()
+  const storeCount = cat.stores.length || 13
+  const stats: { icon: LucideIcon; value: string; label: string }[] = [
+    { icon: StoreIcon, value: String(storeCount), label: 'partner stores' },
+    { icon: ShoppingBag, value: '1', label: 'cart' },
+    { icon: Truck, value: '1', label: 'delivery fee' },
+  ]
+  const tile = (d: (typeof ONE_CART_DISHES)[number], i: number) => {
+    const store = cat.storeBySlug.get(d.slug)
+    return (
+      <Reveal key={d.slug} delay={120 + i * 80}>
+        <Link
+          to={`/store/${d.slug}`}
+          className="group relative block overflow-hidden rounded-2xl bg-sand ring-1 ring-sand-200/70"
+          aria-label={`${d.dish} from ${store?.name ?? 'a partner store'}`}
+        >
+          <SmartImage
+            src={d.src}
+            alt=""
+            className="aspect-[4/3] w-full transition-transform duration-500 ease-out group-hover:scale-[1.04]"
+          />
+          <span className="absolute inset-x-2 bottom-2 flex min-w-0 flex-col rounded-xl bg-white/95 px-2.5 py-1.5 shadow-sm backdrop-blur-sm">
+            <span className="truncate font-heading text-xs font-semibold text-navy sm:text-sm">{d.dish}</span>
+            <span className="truncate text-[11px] text-navy/70">{store?.name ?? ' '}</span>
+          </span>
+        </Link>
+      </Reveal>
+    )
+  }
+  return (
+    <Reveal className="mt-16" role="region" aria-labelledby="one-cart-title">
+      <div className="grid grid-cols-1 items-center gap-8 overflow-hidden rounded-[2rem] bg-white p-5 shadow-sm ring-1 ring-sand-200/70 sm:p-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:gap-12 lg:p-12">
+        <div>
+          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.25em] text-navy/70">
+            <span className="size-1.5 rounded-full bg-brand" aria-hidden /> One cart, many kitchens
+          </p>
+          <h2 id="one-cart-title" className="mt-4 font-display text-3xl font-bold leading-[1.1] sm:text-[2.6rem]">
+            Order from every store, <span className="text-brand-600">pay one delivery fee.</span>
+          </h2>
+          <p className="mt-4 max-w-md text-navy/70">Mix puto, pancit bilao and crispy pata from different merchants in one order.</p>
+          <ul className="mt-6 grid max-w-md grid-cols-3 divide-x divide-sand-200 rounded-2xl bg-cream ring-1 ring-sand-200/70">
+            {stats.map(({ icon: Icon, value, label }) => (
+              <li key={label} className="flex flex-col items-center gap-1 px-2 py-3 text-center">
+                <Icon className="size-4 text-brand-600" aria-hidden />
+                <span className="font-display text-2xl font-bold leading-none">{value}</span>
+                <span className="text-[11px] leading-tight text-navy/70">{label}</span>
+              </li>
+            ))}
+          </ul>
+          <Button size="lg" className="mt-7" onClick={onStart}>
+            Start your order <ArrowRight />
+          </Button>
+        </div>
+        {/* Two staggered columns of dishes, one from each store */}
+        <div className="grid grid-cols-2 gap-3 sm:gap-4">
+          <div className="space-y-3 sm:space-y-4">{ONE_CART_DISHES.slice(0, 2).map((d, i) => tile(d, i))}</div>
+          <div className="space-y-3 pt-8 sm:space-y-4 sm:pt-12">{ONE_CART_DISHES.slice(2).map((d, i) => tile(d, i + 2))}</div>
+        </div>
+      </div>
+    </Reveal>
   )
 }
 
@@ -325,13 +383,12 @@ function CategoryTile({ icon: Icon, label, active, onClick }: { icon: LucideIcon
   )
 }
 
-function StoreCard({ store, category, index }: { store: Store; category?: string; index: number }) {
+function StoreCard({ store, category }: { store: Store; category?: string }) {
   const open = isOpenNow(store.open_time, store.close_time)
   return (
     <Link
       to={`/store/${store.slug}`}
-      className="group flex flex-row overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-sand-200/70 sm:flex-col transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-navy/10 animate-fade-up"
-      style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
+      className="group flex flex-row overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-sand-200/70 sm:flex-col transition-all hover:-translate-y-1 hover:shadow-xl hover:shadow-navy/10"
     >
       <div className="relative w-28 shrink-0 overflow-hidden sm:w-auto">
         <SmartImage
