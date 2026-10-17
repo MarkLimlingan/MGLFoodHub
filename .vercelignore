@@ -1,0 +1,9 @@
+# Files the Vercel CLI should never upload (mirrors .gitignore, plus local tooling).
+node_modules
+dist
+.env
+.env.*
+*.local
+.claude
+supabase/.temp
+supabase/.branches
