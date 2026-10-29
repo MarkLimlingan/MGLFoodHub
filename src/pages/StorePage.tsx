@@ -14,6 +14,7 @@ export default function StorePage() {
   const { slug = '' } = useParams()
   const [params] = useSearchParams()
   const focusProduct = params.get('p')
+  const focusSection = params.get('s')
   const cat = useCatalog()
   const earliest = useEarliestDelivery()
   const store = cat.storeBySlug.get(slug)
@@ -59,6 +60,13 @@ export default function StorePage() {
     const t = setTimeout(() => document.getElementById(`product-${focusProduct}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 250)
     return () => clearTimeout(t)
   }, [focusProduct, cat.loading])
+
+  // Deep link from a home page category tile (e.g. Wet Foods → Salmon): scroll to that section.
+  useEffect(() => {
+    if (!focusSection || cat.loading) return
+    const t = setTimeout(() => document.getElementById(`section-${focusSection}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 250)
+    return () => clearTimeout(t)
+  }, [focusSection, cat.loading])
 
   if (cat.loading) {
     return (

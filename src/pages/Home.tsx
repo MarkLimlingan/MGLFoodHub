@@ -29,6 +29,9 @@ const CATEGORY_ICON: Record<string, LucideIcon> = {
   'sisig-crispy-favorites': Flame,
 }
 
+/** Fresh seafood: kept out of the store grid and shown in its own section (WetFoodsSection). */
+const WET_FOODS = 'wet-foods'
+
 export default function Home() {
   const cat = useCatalog()
   const storeCount = cat.stores.length || 14
@@ -43,15 +46,17 @@ export default function Home() {
     const slug = params.get('cat')
     if (!slug || !cat.categories.length) return
     const found = cat.categories.find((c) => c.slug === slug)
-    if (found) setCategory(found.id)
+    if (found?.slug === WET_FOODS) setTimeout(() => document.getElementById('wet-foods')?.scrollIntoView({ behavior: 'smooth' }), 300)
+    else if (found) setCategory(found.id)
     const next = new URLSearchParams(params)
     next.delete('cat')
     setParams(next, { replace: true })
   }, [params, cat.categories, setParams])
 
+  const wetFoodsId = cat.categories.find((c) => c.slug === WET_FOODS)?.id
   const stores = useMemo(
-    () => cat.stores.filter((s) => category === 'all' || s.hub_category_id === category),
-    [cat.stores, category],
+    () => cat.stores.filter((s) => s.hub_category_id !== wetFoodsId && (category === 'all' || s.hub_category_id === category)),
+    [cat.stores, category, wetFoodsId],
   )
 
   const results = useMemo(() => {
@@ -156,7 +161,7 @@ export default function Home() {
       <Reveal className="mt-10" role="region" aria-label="Categories">
         <div className="-mx-3 flex gap-4 overflow-x-auto px-3 pb-2 scrollbar-none sm:-mx-4 lg:-mx-6 sm:gap-6 sm:px-4 lg:px-6 lg:justify-between">
           <CategoryTile icon={LayoutGrid} label="All stores" active={category === 'all'} onClick={() => pickCategory('all')} />
-          {cat.categories.map((c) => (
+          {cat.categories.filter((c) => c.slug !== WET_FOODS).map((c) => (
             <CategoryTile
               key={c.id}
               icon={CATEGORY_ICON[c.slug] ?? StoreIcon}
@@ -243,6 +248,9 @@ export default function Home() {
           </>
         )}
       </section>
+
+      {/* ------------------------------------------------------------ Wet Foods (own section) */}
+      {q.length < 2 && <WetFoodsSection />}
 
       {/* ------------------------------------------------------------ One cart banner */}
       <OneCartBanner onStart={goToStores} />
@@ -382,6 +390,82 @@ function StoreNameTile({ name, icon: Icon, className }: { name: string; icon: Lu
       <Icon className="size-5 text-brand-ink sm:size-7" strokeWidth={1.6} />
       <span className="line-clamp-3 font-display text-sm font-bold leading-tight text-navy sm:text-xl">{name}</span>
     </div>
+  )
+}
+
+/** Wet Foods in its own section: one photo tile per category (Fresh Shrimp, Salmon, …), each opening that part of the store. */
+function WetFoodsSection() {
+  const cat = useCatalog()
+  const category = cat.categories.find((c) => c.slug === WET_FOODS)
+  const wetStores = category ? cat.stores.filter((s) => s.hub_category_id === category.id) : []
+  const tiles = wetStores
+    .flatMap((store) =>
+      (cat.sectionsByStore.get(store.id) ?? []).map((section) => {
+        const products = cat.productsBySection.get(section.id) ?? []
+        const prices = products.flatMap((p) => (cat.variantsByProduct.get(p.id) ?? []).map((v) => Number(v.price)))
+        return {
+          store,
+          section,
+          count: products.length,
+          from: prices.length ? Math.min(...prices) : null,
+          image: products.find((p) => p.image_url)?.image_url ?? null,
+        }
+      }),
+    )
+    .filter((t) => t.count > 0)
+  if (!category || !tiles.length) return null
+
+  return (
+    <section id="wet-foods" aria-labelledby="wet-foods-title" className="mt-16 scroll-mt-24">
+      <Reveal className="mb-5 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.25em] text-navy/70">
+            <Fish className="size-4 text-brand-ink" aria-hidden /> Fresh seafood
+          </p>
+          <h2 id="wet-foods-title" className="mt-2 font-display text-3xl font-bold sm:text-4xl">
+            {category.name}
+          </h2>
+          <p className="mt-1 text-sm text-navy/70">Fresh catch in the same cart, delivered on your schedule.</p>
+        </div>
+        {wetStores.length === 1 && (
+          <Link to={`/store/${wetStores[0].slug}`} className="flex items-center gap-1.5 text-sm font-medium text-navy hover:text-brand-ink">
+            See all {category.name.toLowerCase()} <ArrowRight className="size-4" />
+          </Link>
+        )}
+      </Reveal>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-5">
+        {tiles.map((t, i) => (
+          <Reveal key={t.section.id} delay={(i % 5) * 70} className="flex [&>a]:w-full">
+            <Link
+              to={`/store/${t.store.slug}?s=${t.section.id}`}
+              className="surface-card group flex flex-col overflow-hidden rounded-2xl transition-all hover:-translate-y-1 hover:shadow-lg hover:shadow-navy/10"
+            >
+              <div className="aspect-[4/3] overflow-hidden bg-[#fdf3e3]">
+                {t.image ? (
+                  <SmartImage src={t.image} alt="" className="h-full w-full transition-transform duration-500 group-hover:scale-105" />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-brand-ink">
+                    <Fish className="size-8" aria-hidden />
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-1 flex-col gap-1 p-3 sm:p-4">
+                <h3 className="font-heading text-base font-semibold leading-snug group-hover:text-brand-ink">{t.section.name}</h3>
+                <p className="text-xs text-navy/70">
+                  {t.count} {t.count === 1 ? 'item' : 'items'}
+                  {t.from !== null && (
+                    <>
+                      {' · from '}
+                      <span className="font-semibold text-navy tabular-nums">{peso(t.from)}</span>
+                    </>
+                  )}
+                </p>
+              </div>
+            </Link>
+          </Reveal>
+        ))}
+      </div>
+    </section>
   )
 }
 
