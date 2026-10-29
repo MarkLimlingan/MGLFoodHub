@@ -17,6 +17,7 @@ export const categories = [
   { slug: 'puto-kakanin', name: 'Puto & Kakanin' },
   { slug: 'pancit-bilao', name: 'Pancit & Bilao' },
   { slug: 'restaurants', name: 'Restaurants' },
+  { slug: 'wet-foods', name: 'Wet Foods' },
   { slug: 'carinderia', name: 'Carinderia' },
   { slug: 'merienda-street-food', name: 'Merienda & Street Food' },
   { slug: 'diner', name: 'Diner' },
@@ -551,6 +552,22 @@ Bagnet Bilao = 828
 Bilao Shanghai = 624
 ## Crispy Pata
 Crispy Pata = Regular 468 | Medium 492 | Large 516 ; #new ; !/products/sisig-ni-mutik-crispy-pata.jpg
+
+STORE wet-foods | Wet Foods | wet-foods | 12:00-20:00
+## Fresh Shrimp
+Fresh Shrimp (Suahe) = Small (24 pcs/kg) 750 | Medium (31 pcs/kg) 800 | Large (45 pcs/kg) 850 ; ~Price per kilo. ; !/products/wet-foods-fresh-shrimp.jpg
+## Salmon
+Salmon Belly = 500g 320 ; !/products/wet-foods-salmon-belly.jpg
+Salmon Head = Per kilo 250 ; !/products/wet-foods-salmon-head.jpg
+## Tilapia
+Tilapia = Large 250 | Medium 230 ; !/products/wet-foods-tilapia.jpg
+## Other Fresh Fish
+Tulingan = 310 ; !/products/wet-foods-tulingan.jpg
+Alumahan = 550 ; !/products/wet-foods-alumahan.jpg
+Hasa = Small 600 | Big 650 ; !/products/wet-foods-hasa.jpg
+Bisugong Dilat = 700 ; !/products/wet-foods-bisugong-dilat.jpg
+## Dagupan Bangus
+Dagupan Bangus = 1 to 1.2 kg 400 | 400g, 3 pcs 440 | 300g, 4 pcs 450 ; !/products/wet-foods-dagupan-bangus.jpg
 `
 
 // Balsa Chicken — "Buttered Half" is unreadable on the menu photo (₱[CONFIRM]).

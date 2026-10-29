@@ -46,7 +46,7 @@ export function CartContents({ onNavigate, compact }: { onNavigate?: () => void;
           </Button>
         }
       >
-        Busog-lusog awaits! Add something yummy from our 13 partner stores.
+        Busog-lusog awaits! Add something yummy from our {cat.stores.length || 14} partner stores.
       </EmptyState>
     )
   }

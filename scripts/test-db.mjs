@@ -144,7 +144,7 @@ ok((await spot('aurings-special-pancit-malabon', 'Pancit Malabon Bilao', 'For 30
 ok((await spot('raves-diner', 'Beef Belly', '1kg'))[0] === '2340.00', 'Raves Beef Belly 1kg = 2340.00')
 
 const photos = (await pg.query(`select s.slug, p.name, p.image_url from products p join stores s on s.id = p.store_id where p.image_url is not null order by 1, 2`)).rows
-ok(photos.length === 7 && photos.every((r) => existsSync(path.join(root, 'public', r.image_url))), '7 products have menu photos and every photo file exists')
+ok(photos.length === 16 && photos.every((r) => existsSync(path.join(root, 'public', r.image_url))), '16 products have menu photos (9 of them Wet Foods) and every photo file exists')
 // A photo the admin uploads must survive re-running the setup.
 await pg.query(`update products set image_url = '/admin-upload.jpg' where image_url = '/products/hazels-puto.jpg'`)
 await pg.exec(readFileSync(path.join(migrationsDir, '20261007000300_seed_menu.sql'), 'utf8'))
@@ -160,7 +160,7 @@ await expectError(pg, `update option_choices set price_delta = 5 where id = (sel
 // ---------------------------------------------------------------------
 console.log('\nAnonymous access')
 await asRole('anon')
-ok((await pg.query('select count(*)::int n from products')).rows[0].n === 414, 'anon can read products')
+ok((await pg.query('select count(*)::int n from products')).rows[0].n === 423, 'anon can read products')
 await expectError(pg, 'select * from orders', [], 'permission denied', 'anon cannot select orders')
 await expectError(pg, `insert into orders (order_number) values ('x')`, [], 'permission denied', 'anon cannot insert orders')
 await expectError(pg, 'select * from settings', [], 'permission denied', 'anon cannot read settings table')
@@ -232,7 +232,32 @@ await expectError(pg, 'select place_order($1::jsonb)', [JSON.stringify({ ...base
 
 // Every store delivers 12:00 PM to 8:00 PM, so any mix of stores shares the same 8 slots.
 const hours = (await pg.query(`select count(*)::int n from stores where open_time = '12:00' and close_time = '20:00'`)).rows[0].n
-ok(hours === 13, 'all 13 stores deliver 12:00 PM to 8:00 PM')
+ok(hours === 14, 'all 14 stores deliver 12:00 PM to 8:00 PM')
+
+// Wet Foods: its own category and store, right after Restaurants / Rody Day's, every price as the client supplied it.
+const wet = (await pg.query(`select s.sort, s.menu_image_url, c.slug as cat, c.sort as cat_sort from stores s join hub_categories c on c.id = s.hub_category_id where s.slug = 'wet-foods'`)).rows[0]
+const restaurantsSort = (await pg.query(`select sort from hub_categories where slug = 'restaurants'`)).rows[0].sort
+const rodySort = (await pg.query(`select sort from stores where slug = 'rody-days'`)).rows[0].sort
+ok(wet && wet.cat === 'wet-foods' && wet.cat_sort === restaurantsSort + 1 && wet.sort === rodySort + 1, 'Wet Foods is its own category after Restaurants, listed right after Rody Day\'s')
+ok(wet.menu_image_url === null, 'Wet Foods has no menu photo, so the store page hides "View original menu"')
+const wetPrices = (await pg.query(
+  `select p.name || ' / ' || v.label || ' = ' || v.price as line from product_variants v join products p on p.id = v.product_id
+   join stores s on s.id = p.store_id join menu_sections m on m.id = p.section_id where s.slug = 'wet-foods' order by m.sort, p.sort, v.sort`)).rows.map((r) => r.line)
+ok(JSON.stringify(wetPrices) === JSON.stringify([
+  'Fresh Shrimp (Suahe) / Small (24 pcs/kg) = 750.00', 'Fresh Shrimp (Suahe) / Medium (31 pcs/kg) = 800.00', 'Fresh Shrimp (Suahe) / Large (45 pcs/kg) = 850.00',
+  'Salmon Belly / 500g = 320.00', 'Salmon Head / Per kilo = 250.00',
+  'Tilapia / Large = 250.00', 'Tilapia / Medium = 230.00',
+  'Tulingan / Regular = 310.00', 'Alumahan / Regular = 550.00', 'Hasa / Small = 600.00', 'Hasa / Big = 650.00', 'Bisugong Dilat / Regular = 700.00',
+  'Dagupan Bangus / 1 to 1.2 kg = 400.00', 'Dagupan Bangus / 400g, 3 pcs = 440.00', 'Dagupan Bangus / 300g, 4 pcs = 450.00',
+]), 'Wet Foods has all 15 options at the client\'s prices')
+const shrimpLarge = await variantOf('wet-foods', 'Fresh Shrimp (Suahe)', 'Large (45 pcs/kg)')
+const bangus4 = await variantOf('wet-foods', 'Dagupan Bangus', '300g, 4 pcs')
+const rw = (await place({ ...base, phone: '09170000050', items: [{ variant_id: shrimpLarge, quantity: 1 }, { variant_id: bangus4, quantity: 1 }, { variant_id: okoy, quantity: 1 }] })).rows[0].r
+await asSuper()
+const wetOrder = (await pg.query(`select o.subtotal, json_agg(i.store_name_snapshot || ': ' || i.product_name_snapshot || ' (' || i.variant_label_snapshot || ') x' || i.quantity || ' = ' || i.line_total order by i.line_no) as lines from orders o join order_items i on i.order_id = o.id where o.order_number = $1 group by o.subtotal`, [rw.order_number])).rows[0]
+const okoyPrice = Number((await pg.query('select price from product_variants where id = $1', [okoy])).rows[0].price)
+ok(Number(wetOrder.subtotal) === 850 + 450 + okoyPrice && wetOrder.lines[0] === 'Wet Foods: Fresh Shrimp (Suahe) (Large (45 pcs/kg)) x1 = 850.00' && wetOrder.lines[1] === 'Wet Foods: Dagupan Bangus (300g, 4 pcs) x1 = 450.00', 'Wet Foods order with another store keeps each size, price and store')
+await asRole('anon')
 const hazel = await variantOf('hazels-special-puto', 'Puto Pao', '10pcs')
 const raves = await variantOf('raves-diner', 'Classic')
 await expectError(pg, 'select place_order($1::jsonb)', [JSON.stringify({ ...base, phone: '09170000001', delivery_slot: '20:00-21:00', items: [{ variant_id: hazel, quantity: 1 }, { variant_id: raves, quantity: 1 }] })], 'outside the store hours', "Hazel's + Raves rejects a slot after 8 PM")

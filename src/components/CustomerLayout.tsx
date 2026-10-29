@@ -143,7 +143,7 @@ function MobileNav() {
 
 /** Light cream footer: navy text, orange accents (dots, underlines, divider). */
 function Footer() {
-  const { categories } = useCatalog()
+  const { categories, stores } = useCatalog()
   const openGuidelines = useGuidelines((s) => s.setOpen)
   const heading = 'mb-3 flex items-center gap-2 font-heading text-sm font-semibold text-navy'
   const dot = <span className="size-1.5 rounded-full bg-brand" aria-hidden />
@@ -157,7 +157,7 @@ function Footer() {
           <div className="col-span-2 space-y-4 lg:col-span-1">
             <Logo className="h-16" />
             <p className="font-display text-2xl italic leading-none text-navy">Good food, on schedule.</p>
-            <p className="max-w-xs text-sm text-navy/75">13 Malabon favorites in one cart, with scheduled delivery straight to your door.</p>
+            <p className="max-w-xs text-sm text-navy/75">{stores.length || 14} Malabon favorites in one cart, with scheduled delivery straight to your door.</p>
             <div>
               <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-navy/70">We accept</p>
               <div className="flex flex-wrap gap-2 text-xs">

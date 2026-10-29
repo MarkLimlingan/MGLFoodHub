@@ -118,6 +118,10 @@ export function ProductCard({
           {variants.length > 1 && (
             <p className="mt-1 text-xs font-medium text-navy/70">from {peso(fromPrice)}</p>
           )}
+          {/* One size with a real label ("500g", "Per kilo", "per rack"): show it, as the cart does. */}
+          {variants.length === 1 && variants[0].label !== 'Regular' && (
+            <p className="mt-1 text-xs font-medium text-navy/70">{variants[0].label}</p>
+          )}
         </div>
 
         {variants.length > 1 && (

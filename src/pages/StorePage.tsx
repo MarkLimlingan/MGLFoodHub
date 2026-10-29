@@ -116,19 +116,23 @@ export default function StorePage() {
                   </span>
                 )}
               </div>
-              <Button size="md" className="mt-5" onClick={() => setMenuOpen(true)}>
-                <BookOpen /> View original menu
-              </Button>
+              {store.menu_image_url && (
+                <Button size="md" className="mt-5" onClick={() => setMenuOpen(true)}>
+                  <BookOpen /> View original menu
+                </Button>
+              )}
             </div>
-            <button
-              type="button"
-              onClick={() => setMenuOpen(true)}
-              className="group relative mx-auto w-40 shrink-0 -rotate-3 overflow-hidden rounded-2xl shadow-xl shadow-navy/15 ring-4 ring-white transition-transform hover:rotate-0 sm:mx-0 sm:w-48"
-              aria-label="View original menu"
-            >
-              <SmartImage src={store.menu_image_url} alt={`${store.name} menu`} className="aspect-[3/4] w-full object-top" />
-              <span className="absolute inset-x-0 bottom-0 bg-navy/80 py-1.5 text-center text-[11px] font-semibold text-white">Tap to view menu</span>
-            </button>
+            {store.menu_image_url && (
+              <button
+                type="button"
+                onClick={() => setMenuOpen(true)}
+                className="group relative mx-auto w-40 shrink-0 -rotate-3 overflow-hidden rounded-2xl shadow-xl shadow-navy/15 ring-4 ring-white transition-transform hover:rotate-0 sm:mx-0 sm:w-48"
+                aria-label="View original menu"
+              >
+                <SmartImage src={store.menu_image_url} alt={`${store.name} menu`} className="aspect-[3/4] w-full object-top" />
+                <span className="absolute inset-x-0 bottom-0 bg-navy/80 py-1.5 text-center text-[11px] font-semibold text-white">Tap to view menu</span>
+              </button>
+            )}
           </div>
         </section>
       </div>

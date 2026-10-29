@@ -1,7 +1,7 @@
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
-  ArrowRight, Banknote, Beef, CakeSlice, CalendarClock, ChevronRight, Clock, CookingPot, Flame, LayoutGrid, MapPin, Radio, Sandwich,
+  ArrowRight, Banknote, Beef, CakeSlice, CalendarClock, ChevronRight, Clock, CookingPot, Fish, Flame, LayoutGrid, MapPin, Radio, Sandwich,
   Search, ShieldCheck, Soup, Store as StoreIcon, Truck, UtensilsCrossed, X, type LucideIcon,
 } from 'lucide-react'
 import { useCatalog, type Catalog } from '@/hooks/useCatalog'
@@ -22,6 +22,7 @@ const CATEGORY_ICON: Record<string, LucideIcon> = {
   'puto-kakanin': CakeSlice,
   'pancit-bilao': Soup,
   restaurants: UtensilsCrossed,
+  'wet-foods': Fish,
   carinderia: CookingPot,
   'merienda-street-food': Sandwich,
   diner: Beef,
@@ -30,6 +31,7 @@ const CATEGORY_ICON: Record<string, LucideIcon> = {
 
 export default function Home() {
   const cat = useCatalog()
+  const storeCount = cat.stores.length || 14
   const [params, setParams] = useSearchParams()
   const [category, setCategory] = useState<string>('all')
   const [query, setQuery] = useState('')
@@ -84,7 +86,7 @@ export default function Home() {
         <div className="pointer-events-none absolute -right-24 top-0 hidden h-full w-[55%] rounded-l-[45%] bg-[#f6dcae] md:block" />
         <div className="relative grid grid-cols-1 items-center gap-8 px-4 py-10 sm:px-8 sm:py-14 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
           <div className="animate-fade-up">
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-navy/70">13 stores · One cart</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-navy/70">{storeCount} stores · One cart</p>
             <h1 className="mt-4 font-display text-[2.4rem] font-bold leading-[1.06] text-navy sm:text-[3rem] lg:text-[3.35rem]">
               Malabon's favorites,
               <br />
@@ -251,7 +253,7 @@ export default function Home() {
           { icon: CalendarClock, t: 'Scheduled Delivery', d: 'Book for tomorrow or any day within 30 days.' },
           { icon: Banknote, t: 'COD or Online Payment', d: 'Pay cash to the rider (orders up to ₱2,000) or send via GCash, MariBank or GoTyme.' },
           { icon: Radio, t: 'Live Order Tracking', d: 'Your own private link shows every update.' },
-          { icon: StoreIcon, t: 'One Delivery Fee', d: 'Order from all 13 merchants in one go.' },
+          { icon: StoreIcon, t: 'One Delivery Fee', d: `Order from all ${storeCount} merchants in one go.` },
         ].map(({ icon: Icon, t, d }, i) => (
           <Reveal key={t} delay={i * 70} className="flex items-start gap-3">
             <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-sand text-brand-ink">
@@ -272,7 +274,7 @@ export default function Home() {
 function OneCartBanner({ onStart }: { onStart: () => void }) {
   const cat = useCatalog()
   const earliest = useEarliestDelivery()
-  const storeCount = cat.stores.length || 13
+  const storeCount = cat.stores.length || 14
   const steps = [
     { title: 'Fill one cart', text: `Mix puto, pancit and crispy pata from any of the ${storeCount} stores.` },
     { title: 'Pick a day and time', text: `Choose your delivery slot. The earliest is ${earliest ?? 'tomorrow'}.` },

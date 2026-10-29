@@ -13,7 +13,7 @@ React + Vite + TypeScript + Tailwind (shadcn-style components) · Supabase (Post
 2. Quickest: paste **`supabase/setup-all.sql`** (all three files combined; safe to re-run) into **SQL Editor → Run**. If you change a migration, rebuild that file. Otherwise, run the three migrations **in order**. Either paste each one into **SQL Editor → Run**, or use the CLI (`supabase link` then `supabase db push`):
    - `supabase/migrations/20261007000100_schema.sql`: tables, RLS, grants, the price-lock trigger, storage buckets, realtime
    - `supabase/migrations/20261007000200_functions.sql`: `place_order`, `get_order_by_token`, `find_order`, `request_cancellation`, `resubmit_gcash_proof`, `get_checkout_info`, `admin_order_action`
-   - `supabase/migrations/20261007000300_seed_menu.sql`: all 13 stores, 76 sections, 414 products, 527 variants (generated, see §5)
+   - `supabase/migrations/20261007000300_seed_menu.sql`: all 14 stores, 81 sections, 423 products, 542 variants (generated, see §5)
 3. **Auth → Providers → Email**: turn **off** "Allow new users to sign up" (turn it back **on** if you use Google verification, §6b; orders still require a Google account, so email sign ups can't order or see anything).
 4. Create the admin account(s): **Authentication → Users → Add user** (email + password, auto-confirm), then in the SQL editor:
    ```sql
@@ -46,7 +46,7 @@ Admin login: `https://your-domain/<VITE_ADMIN_PATH>`. After sign-in you land on 
 | `public/menus/<slug>.jpg` | Each store's cover and "View original menu" photo |
 | `public/products/*.jpg` | Product photos (16:10), linked with `; !/products/<file>.jpg` in `scripts/menu-data.mjs`. Re-running the setup fills a product's photo only if the admin hasn't uploaded one. |
 
-Store slugs: `hazels-special-puto`, `aling-melys-carinderia`, `okoy-ni-jay-r`, `aurings-special-pancit-malabon`, `normas-special-pancit-bilao`, `balsa-sa-niugan`, `original-benjie-puto-pao`, `raves-diner`, `mary-jay`, `rody-days`, `anny-dading-peachy-peachy`, `judy-anns-crispy-pata`, `sisig-ni-mutik`.
+Store slugs: `hazels-special-puto`, `aling-melys-carinderia`, `okoy-ni-jay-r`, `aurings-special-pancit-malabon`, `normas-special-pancit-bilao`, `balsa-sa-niugan`, `original-benjie-puto-pao`, `raves-diner`, `mary-jay`, `rody-days`, `anny-dading-peachy-peachy`, `judy-anns-crispy-pata`, `sisig-ni-mutik`, `wet-foods` (no menu photo yet: its store page hides "View original menu" until `public/menus/wet-foods.jpg` exists and the seed is regenerated).
 
 Admins can also replace any store cover, menu photo or product photo from **Admin → Products & Stores** (uploads go to Supabase Storage).
 

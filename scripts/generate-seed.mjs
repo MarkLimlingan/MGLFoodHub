@@ -1,7 +1,7 @@
 // Generates supabase/migrations/20261007000300_seed_menu.sql from scripts/menu-data.mjs.
 // Usage: npm run seed:generate
 import { createHash } from 'node:crypto'
-import { writeFileSync } from 'node:fs'
+import { existsSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { categories, menu } from './menu-data.mjs'
@@ -93,6 +93,7 @@ const STORE_ORDER = [
   'original-benjie-puto-pao',
   'mary-jay',
   'rody-days',
+  'wet-foods', // right after the last restaurant
   'anny-dading-peachy-peachy',
   'aling-melys-carinderia',
   'raves-diner',
@@ -109,7 +110,8 @@ export function buildSeed(stores) {
   out.push(
     categories
       .map((c, i) => `  (${q(uid(`cat:${c.slug}`))}, ${q(c.name)}, ${q(c.slug)}, ${i + 1})`)
-      .join(',\n') + '\non conflict (id) do nothing;',
+      // Re-running applies the display order (no admin screen edits categories).
+      .join(',\n') + '\non conflict (id) do update set sort = excluded.sort;',
   )
   out.push('')
 
@@ -117,7 +119,8 @@ export function buildSeed(stores) {
   stores.forEach((s, i) => {
     const si = STORE_ORDER.includes(s.slug) ? STORE_ORDER.indexOf(s.slug) : STORE_ORDER.length + i
     const storeId = uid(`store:${s.slug}`)
-    const img = `/menus/${s.slug}.jpg`
+    // Only stores with a menu photo in public/menus get one; the store page hides "View original menu" otherwise.
+    const img = existsSync(path.join(here, '..', 'public', 'menus', `${s.slug}.jpg`)) ? `/menus/${s.slug}.jpg` : null
     rows.stores.push(
       `  (${q(storeId)}, ${q(s.slug)}, ${q(s.name)}, ${q(s.tagline)}, ${q(uid(`cat:${s.category}`))}, ${q(s.open)}, ${q(s.close)}, ${q(s.address)}, ${q(s.note)}, ${q(img)}, ${q(img)}, true, ${si + 1})`,
     )
@@ -148,6 +151,7 @@ export function buildSeed(stores) {
   })
 
   const block = (table, cols, list, onConflict = 'do nothing') => {
+    if (!list.length) return // e.g. a store without option groups: an empty "values" list is invalid SQL
     out.push(`insert into public.${table} (${cols}) values`)
     out.push(list.join(',\n') + `\non conflict (id) ${onConflict};`)
     out.push('')
