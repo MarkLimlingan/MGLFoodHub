@@ -244,19 +244,19 @@ const wetPrices = (await pg.query(
   `select p.name || ' / ' || v.label || ' = ' || v.price as line from product_variants v join products p on p.id = v.product_id
    join stores s on s.id = p.store_id join menu_sections m on m.id = p.section_id where s.slug = 'wet-foods' order by m.sort, p.sort, v.sort`)).rows.map((r) => r.line)
 ok(JSON.stringify(wetPrices) === JSON.stringify([
-  'Fresh Shrimp (Suahe) / Small (24 pcs/kg) = 750.00', 'Fresh Shrimp (Suahe) / Medium (31 pcs/kg) = 800.00', 'Fresh Shrimp (Suahe) / Large (45 pcs/kg) = 850.00',
+  'Fresh Shrimp (Suahe) / Small (24 grams) = 750.00', 'Fresh Shrimp (Suahe) / Medium (31 grams) = 800.00', 'Fresh Shrimp (Suahe) / Large (45 grams) = 850.00',
   'Salmon Belly / 500g = 320.00', 'Salmon Head / Per kilo = 250.00',
   'Tilapia / Large = 250.00', 'Tilapia / Medium = 230.00',
   'Tulingan / Regular = 310.00', 'Alumahan / Regular = 550.00', 'Hasa / Small = 600.00', 'Hasa / Big = 650.00', 'Bisugong Dilat / Regular = 700.00',
   'Dagupan Bangus / 1 to 1.2 kg = 400.00', 'Dagupan Bangus / 400g, 3 pcs = 440.00', 'Dagupan Bangus / 300g, 4 pcs = 450.00',
 ]), 'Wet Foods has all 15 options at the client\'s prices')
-const shrimpLarge = await variantOf('wet-foods', 'Fresh Shrimp (Suahe)', 'Large (45 pcs/kg)')
+const shrimpLarge = await variantOf('wet-foods', 'Fresh Shrimp (Suahe)', 'Large (45 grams)')
 const bangus4 = await variantOf('wet-foods', 'Dagupan Bangus', '300g, 4 pcs')
 const rw = (await place({ ...base, phone: '09170000050', items: [{ variant_id: shrimpLarge, quantity: 1 }, { variant_id: bangus4, quantity: 1 }, { variant_id: okoy, quantity: 1 }] })).rows[0].r
 await asSuper()
 const wetOrder = (await pg.query(`select o.subtotal, json_agg(i.store_name_snapshot || ': ' || i.product_name_snapshot || ' (' || i.variant_label_snapshot || ') x' || i.quantity || ' = ' || i.line_total order by i.line_no) as lines from orders o join order_items i on i.order_id = o.id where o.order_number = $1 group by o.subtotal`, [rw.order_number])).rows[0]
 const okoyPrice = Number((await pg.query('select price from product_variants where id = $1', [okoy])).rows[0].price)
-ok(Number(wetOrder.subtotal) === 850 + 450 + okoyPrice && wetOrder.lines[0] === 'Wet Foods: Fresh Shrimp (Suahe) (Large (45 pcs/kg)) x1 = 850.00' && wetOrder.lines[1] === 'Wet Foods: Dagupan Bangus (300g, 4 pcs) x1 = 450.00', 'Wet Foods order with another store keeps each size, price and store')
+ok(Number(wetOrder.subtotal) === 850 + 450 + okoyPrice && wetOrder.lines[0] === 'Wet Foods: Fresh Shrimp (Suahe) (Large (45 grams)) x1 = 850.00' && wetOrder.lines[1] === 'Wet Foods: Dagupan Bangus (300g, 4 pcs) x1 = 450.00', 'Wet Foods order with another store keeps each size, price and store')
 await asRole('anon')
 const hazel = await variantOf('hazels-special-puto', 'Puto Pao', '10pcs')
 const raves = await variantOf('raves-diner', 'Classic')

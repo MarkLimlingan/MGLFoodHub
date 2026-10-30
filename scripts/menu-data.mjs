@@ -555,7 +555,7 @@ Crispy Pata = Regular 468 | Medium 492 | Large 516 ; #new ; !/products/sisig-ni-
 
 STORE wet-foods | Wet Foods | wet-foods | 12:00-20:00
 ## Fresh Shrimp
-Fresh Shrimp (Suahe) = Small (24 pcs/kg) 750 | Medium (31 pcs/kg) 800 | Large (45 pcs/kg) 850 ; ~Price per kilo. ; !/products/wet-foods-fresh-shrimp.jpg
+Fresh Shrimp (Suahe) = Small (24 grams) 750 | Medium (31 grams) 800 | Large (45 grams) 850 ; ~Price per kilo. ; !/products/wet-foods-fresh-shrimp.jpg
 ## Salmon
 Salmon Belly = 500g 320 ; !/products/wet-foods-salmon-belly.jpg
 Salmon Head = Per kilo 250 ; !/products/wet-foods-salmon-head.jpg
