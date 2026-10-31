@@ -83,9 +83,13 @@ export function CartContents({ onNavigate, compact }: { onNavigate?: () => void;
                 <div className="min-w-0 flex-1">
                   <p className={cn('text-sm font-semibold leading-snug', issue && 'text-navy/70 line-through')}>{line.productName}</p>
                   <p className="text-xs text-navy/70">
-                    {line.sectionName && line.sectionName !== line.productName ? `${line.sectionName} · ` : ''}
-                    {lineDetails(line.variantLabel, line.choices)}
-                    {line.extraToppings ? ' · Extra toppings' : ''}
+                    {[
+                      line.sectionName && line.sectionName !== line.productName ? line.sectionName : null,
+                      lineDetails(line.variantLabel, line.choices),
+                      line.extraToppings ? 'Extra toppings' : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
                   </p>
                   {issue ? (
                     <p className="mt-1.5 inline-flex rounded-full bg-brand-red px-2 py-0.5 text-[11px] font-bold uppercase text-white">{issue}</p>

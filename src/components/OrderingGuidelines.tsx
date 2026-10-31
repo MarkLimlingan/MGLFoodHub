@@ -37,7 +37,7 @@ export function OrderingGuidelines() {
   const [items, setItems] = useState<string[]>(DEFAULT_GUIDELINES)
 
   useEffect(() => {
-    // Coming back from signing in with Google or Facebook is a page load too, but they've already seen it.
+    // Coming back from signing in with Google is a page load too, but they've already seen it.
     let returning = false
     try {
       returning = sessionStorage.getItem(SIGNIN_RETURN_KEY) === '1'

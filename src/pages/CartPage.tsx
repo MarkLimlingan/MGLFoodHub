@@ -1,3 +1,4 @@
+import { usePageTitle } from '@/hooks/usePageTitle'
 import { Link, useNavigate } from 'react-router-dom'
 import { ShoppingBag } from 'lucide-react'
 import { useCartView } from '@/hooks/useCatalog'
@@ -8,6 +9,7 @@ import { CartCheckoutButton } from '@/components/GoogleLink'
 import { PageShell } from '@/components/CustomerLayout'
 
 export default function CartPage() {
+  usePageTitle('Your cart')
   const view = useCartView()
   const navigate = useNavigate()
   return (

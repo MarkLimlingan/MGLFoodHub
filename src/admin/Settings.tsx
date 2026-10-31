@@ -72,7 +72,10 @@ export default function Settings() {
     if (!form) return
     if (!/^\d{2}:\d{2}$/.test(form.cutoff_time)) return toast.error('Enter a valid cutoff time.')
     if (!(form.max_days_ahead >= 1 && form.max_days_ahead <= 365)) return toast.error('Max days ahead must be between 1 and 365.')
-    if (form.owner_phone.trim() && !/^\+?[0-9() -]{7,20}$/.test(form.owner_phone.trim())) return toast.error('Enter a valid owner contact number, or leave it empty.')
+    const ownerPhone = form.owner_phone.trim()
+    if (ownerPhone && (!/^\+?[0-9() -]{7,20}$/.test(ownerPhone) || ownerPhone.replace(/\D/g, '').length < 7)) {
+      return toast.error('Enter a valid owner contact number, or leave it empty.')
+    }
     setSaving(true)
     const now = new Date().toISOString()
     const rows = (Object.keys(DEFAULTS) as (keyof SettingsForm)[]).map((key) => ({

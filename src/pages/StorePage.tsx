@@ -85,7 +85,7 @@ export default function StorePage() {
 
   if (!store) {
     return (
-      <EmptyState icon={<StoreIcon />} title="Store not found" action={<Button asChild><Link to="/">See all stores</Link></Button>}>
+      <EmptyState as="h1" icon={<StoreIcon />} title="Store not found" action={<Button asChild><Link to="/">See all stores</Link></Button>}>
         This store may have moved. Balik tayo sa listahan?
       </EmptyState>
     )

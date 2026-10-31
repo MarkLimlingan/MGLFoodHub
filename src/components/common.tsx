@@ -145,17 +145,20 @@ export function EmptyState({
   children,
   action,
   className,
+  as: Heading = 'h3',
 }: {
   icon?: ReactNode
   title: string
   children?: ReactNode
   action?: ReactNode
   className?: string
+  /** 'h1' when the empty state is the whole page (not found, empty cart). */
+  as?: 'h1' | 'h2' | 'h3'
 }) {
   return (
     <div className={cn('flex flex-col items-center gap-3 px-6 py-12 text-center animate-fade-up', className)}>
       {icon && <div className="flex size-20 items-center justify-center rounded-full bg-sand text-brand-600 [&_svg]:size-9">{icon}</div>}
-      <h3 className="font-display text-2xl font-bold">{title}</h3>
+      <Heading className="font-display text-2xl font-bold">{title}</Heading>
       {children && <div className="max-w-sm text-sm text-navy/65">{children}</div>}
       {action}
     </div>

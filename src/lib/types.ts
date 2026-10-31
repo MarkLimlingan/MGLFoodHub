@@ -119,6 +119,10 @@ export interface PublicOrder {
   customer_notes: string | null
   cancel_reason: string | null
   cancel_requested: boolean
+  /** Online payment still needs its screenshot (missing on databases not yet updated). */
+  needs_payment_proof?: boolean
+  /** What the customer paid, when Admin → Edit Order changed the food subtotal of a paid order. */
+  amount_paid?: number | null
   created_at: string
   updated_at: string
   items: PublicOrderItem[]
@@ -177,6 +181,8 @@ export interface OrderRow {
   google_name: string | null
   google_email: string | null
   google_picture: string | null
+  /** Which account verified the order (Facebook only on orders placed before Facebook sign in was removed). */
+  verified_with?: 'google' | 'facebook' | null
   address: string
   barangay: string
   city: string
@@ -192,6 +198,8 @@ export interface OrderRow {
   subtotal: number
   delivery_fee: number
   total: number
+  /** Set when Edit Order changed the subtotal of a paid online order: what was actually paid. */
+  paid_amount?: number | null
   customer_notes: string | null
   admin_notes: string | null
   cancel_reason: string | null

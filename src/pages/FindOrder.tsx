@@ -1,3 +1,4 @@
+import { usePageTitle } from '@/hooks/usePageTitle'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search } from 'lucide-react'
@@ -10,6 +11,7 @@ import { ErrorBanner } from '@/components/common'
 import { PageShell } from '@/components/CustomerLayout'
 
 export default function FindOrder() {
+  usePageTitle('Find my order')
   const [orderNumber, setOrderNumber] = useState('')
   const [phone, setPhone] = useState('')
   const [busy, setBusy] = useState(false)

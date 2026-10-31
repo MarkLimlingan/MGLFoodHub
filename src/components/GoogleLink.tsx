@@ -1,10 +1,11 @@
 import { useState, type ReactNode } from 'react'
-import { ShieldCheck } from 'lucide-react'
+import { Copy, ShieldCheck } from 'lucide-react'
+import { toast } from 'sonner'
 import {
   PROVIDER_NAME, SIGN_IN_PROVIDERS, useAccountLink, useSignInRequired, type AccountProfile, type SignInProvider,
 } from '@/lib/signin'
 import { installPlatform } from '@/lib/install'
-import { cn } from '@/lib/utils'
+import { cn, copyText } from '@/lib/utils'
 import { ErrorBanner, SmartImage } from './common'
 import { Button } from './ui/button'
 
@@ -20,7 +21,7 @@ export function GoogleLogo({ className }: { className?: string }) {
   )
 }
 
-/** Facebook's round "f": blue on light backgrounds, white on the blue button. */
+/** Facebook's round "f" (admin: orders verified with Facebook before Facebook sign in was removed). */
 export function FacebookLogo({ className, color = '#1877F2' }: { className?: string; color?: string }) {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" className={cn('size-5', className)}>
@@ -32,11 +33,7 @@ export function FacebookLogo({ className, color = '#1877F2' }: { className?: str
   )
 }
 
-export function ProviderLogo({ provider, className }: { provider: SignInProvider; className?: string }) {
-  return provider === 'facebook' ? <FacebookLogo className={className} /> : <GoogleLogo className={className} />
-}
-
-/** "Continue with Google" in Google's light style, or "Continue with Facebook" in Facebook blue. */
+/** "Continue with Google" in Google's light style. */
 function ProviderButton({ provider, onLink, disabled }: { provider: SignInProvider; onLink: () => Promise<void>; disabled?: boolean }) {
   const [busy, setBusy] = useState(false)
   const name = PROVIDER_NAME[provider]
@@ -49,33 +46,37 @@ function ProviderButton({ provider, onLink, disabled }: { provider: SignInProvid
         await onLink()
         setBusy(false)
       }}
-      className={cn(
-        'flex min-h-12 w-full items-center justify-center gap-3 rounded-full px-5 font-semibold transition active:scale-[0.98] disabled:opacity-60',
-        provider === 'facebook'
-          ? 'bg-[#1877F2] text-white hover:bg-[#166FE5]'
-          : 'border border-[#747775] bg-white text-[#1F1F1F] hover:bg-[#F8F9FA]',
-      )}
+      className="flex min-h-12 w-full items-center justify-center gap-3 rounded-full border border-[#747775] bg-white px-5 font-semibold text-[#1F1F1F] transition hover:bg-[#F8F9FA] active:scale-[0.98] disabled:opacity-60"
     >
-      {provider === 'facebook' ? <FacebookLogo color="#ffffff" /> : <GoogleLogo />}
+      <GoogleLogo />
       {busy ? `Opening ${name}…` : `Continue with ${name}`}
     </button>
   )
 }
 
-/** Google and Facebook buttons. Google blocks sign in inside Facebook's and Messenger's built-in browser, so Facebook goes first there. */
+/**
+ * The Google button. Google blocks sign in inside Facebook's and Messenger's built-in browser,
+ * so there the customer is shown how to open the page in their phone's browser instead.
+ */
 export function SignInButtons({ onLink, disabled }: { onLink: (p: SignInProvider) => Promise<void>; disabled?: boolean }) {
   const inApp = installPlatform() === 'in-app'
-  const ordered = inApp ? [...SIGN_IN_PROVIDERS].reverse() : SIGN_IN_PROVIDERS
   return (
     <div className="space-y-2.5">
-      {ordered.map((p) => (
+      {inApp && (
+        <div className="space-y-2 rounded-2xl bg-brand-50 p-3 text-center text-sm text-navy">
+          <p>Google sign in doesn't work inside the Facebook or Messenger app. Copy this page's link and open it in Chrome or Safari.</p>
+          <button
+            type="button"
+            onClick={async () => (await copyText(window.location.href)) && toast.success('Link copied. Paste it in Chrome or Safari.')}
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-full bg-white px-4 font-semibold text-navy ring-1 ring-navy/15 hover:ring-brand"
+          >
+            <Copy className="size-4" /> Copy link
+          </button>
+        </div>
+      )}
+      {SIGN_IN_PROVIDERS.map((p) => (
         <ProviderButton key={p} provider={p} onLink={() => onLink(p)} disabled={disabled} />
       ))}
-      {inApp && (
-        <p className="text-center text-xs text-navy/70">
-          Google sign in doesn't work inside the Facebook or Messenger app. Use Facebook, or open this page in Chrome or Safari.
-        </p>
-      )}
     </div>
   )
 }
@@ -91,7 +92,7 @@ export function SignInGate({ onLink, error }: { onLink: (p: SignInProvider) => P
         <div className="min-w-0">
           <h2 className="font-heading text-lg font-bold">Sign in to place your order</h2>
           <p className="mt-1 text-sm text-navy/70">
-            To keep out fake and scam orders, every order is verified with a Google or Facebook account. We only see your name, email address
+            To keep out fake and scam orders, every order is verified with a Google account. We only see your name, Gmail address
             and profile photo. We never see your password.
           </p>
         </div>
@@ -112,7 +113,7 @@ export function SignedInAs({ profile, onUnlink }: { profile: AccountProfile; onU
       <SmartImage src={profile.picture} alt="" className="size-10 shrink-0 rounded-full" />
       <div className="min-w-0 flex-1">
         <p className="flex items-center gap-1.5 text-xs font-semibold text-navy/70">
-          <ProviderLogo provider={profile.provider} className="size-3.5" /> Verified with {PROVIDER_NAME[profile.provider]}
+          <GoogleLogo className="size-3.5" /> Verified with {PROVIDER_NAME[profile.provider]}
         </p>
         <p className="truncate font-semibold">{profile.name}</p>
         {profile.email && <p className="truncate text-xs text-navy/70">{profile.email}</p>}
@@ -126,7 +127,7 @@ export function SignedInAs({ profile, onUnlink }: { profile: AccountProfile; onU
 
 /**
  * The cart's checkout button. When sign in is required and the customer hasn't yet, it becomes the
- * Google (and Facebook) buttons, which sign them in and land on checkout.
+ * Google button, which signs them in and lands on checkout.
  */
 export function CartCheckoutButton({ children, onCheckout, disabled }: { children: ReactNode; onCheckout: () => void; disabled?: boolean }) {
   const required = useSignInRequired()
@@ -137,7 +138,7 @@ export function CartCheckoutButton({ children, onCheckout, disabled }: { childre
       <div className="space-y-1.5">
         {account.error && <ErrorBanner className="mb-2.5 text-left">{account.error}</ErrorBanner>}
         <SignInButtons onLink={account.link} disabled={disabled || !account.ready} />
-        <p className="text-center text-xs text-navy/70">Sign in with Google or Facebook to check out. This keeps out fake orders.</p>
+        <p className="text-center text-xs text-navy/70">Sign in with Google to check out. This keeps out fake orders.</p>
       </div>
     )
   }
@@ -145,7 +146,7 @@ export function CartCheckoutButton({ children, onCheckout, disabled }: { childre
     <div className="space-y-1.5">
       {required && account.profile && (
         <p className="flex items-center justify-center gap-1.5 text-xs text-navy/70">
-          <ProviderLogo provider={account.profile.provider} className="size-3.5" /> Signed in as{' '}
+          <GoogleLogo className="size-3.5" /> Signed in as{' '}
           <span className="font-semibold text-navy">{account.profile.email ?? account.profile.name}</span>
         </p>
       )}

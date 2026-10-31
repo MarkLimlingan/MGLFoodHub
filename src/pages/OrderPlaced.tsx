@@ -32,7 +32,7 @@ export default function OrderPlaced() {
     )
   }
   if (notFound) {
-    return <EmptyState icon={<PackageSearch />} title="Order not found" action={<Button asChild><Link to="/find-order">Find my order</Link></Button>} />
+    return <EmptyState as="h1" icon={<PackageSearch />} title="Order not found" action={<Button asChild><Link to="/find-order">Find my order</Link></Button>} />
   }
 
   return (

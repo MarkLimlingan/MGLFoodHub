@@ -1,3 +1,4 @@
+import { usePageTitle } from '@/hooks/usePageTitle'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { DayPicker } from 'react-day-picker'
@@ -78,6 +79,7 @@ function shortSlot(slot: string): string {
 }
 
 export default function Checkout() {
+  usePageTitle('Checkout')
   const cat = useCatalog()
   const view = useCartView()
   const deviceId = useCart((s) => s.deviceId)
@@ -97,7 +99,7 @@ export default function Checkout() {
   const submitting = useRef(false)
   const placed = useRef(false)
 
-  // Anti-scam: when the admin requires it, customers sign in with Google or Facebook before they can order.
+  // Anti-scam: when the admin requires it, customers sign in with Google before they can order.
   const signIn = useAccountLink()
   const requireSignIn = info?.require_google_login === true || devSignInPreview()
   const needsSignIn = requireSignIn && !signIn.profile
@@ -283,6 +285,7 @@ export default function Checkout() {
   if (items.length === 0 && !placed.current) {
     return (
       <EmptyState
+        as="h1"
         icon={<ShoppingBag />}
         title="Your cart is empty"
         action={
@@ -311,7 +314,7 @@ export default function Checkout() {
     <div className="mx-auto max-w-7xl px-3 py-8 sm:px-4 lg:px-6 sm:py-12">
       <h1 className="font-display text-3xl font-bold sm:text-4xl">Checkout</h1>
       <p className="mt-1.5 text-sm text-navy/70">
-        Scheduled delivery only. The earliest is tomorrow. {requireSignIn ? 'Orders are verified with Google or Facebook.' : 'No account needed.'}
+        Scheduled delivery only. The earliest is tomorrow. {requireSignIn ? 'Orders are verified with Google.' : 'No account needed.'}
       </p>
       <CheckoutSteps done={stepsDone} />
 

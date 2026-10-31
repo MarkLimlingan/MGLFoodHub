@@ -1,3 +1,4 @@
+import { usePageTitle } from '@/hooks/usePageTitle'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronRight, ClipboardList, Search, Trash2 } from 'lucide-react'
@@ -12,6 +13,7 @@ import { EmptyState, ToneBadge } from '@/components/common'
 import { PageShell } from '@/components/CustomerLayout'
 
 export default function MyOrders() {
+  usePageTitle('My orders')
   const [saved, setSaved] = useState<SavedOrder[]>(getMyOrders)
   const [summaries, setSummaries] = useState<Map<string, OrderSummary>>(new Map())
   const [loading, setLoading] = useState(saved.length > 0)

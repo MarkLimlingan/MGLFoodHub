@@ -63,7 +63,7 @@ export default function Terms() {
 
         <LegalSection title="Account verification">
           <p>
-            We may ask you to sign in with your Google (Gmail) or Facebook account before you order. We use it only to confirm you are a real customer and to stop fake and scam
+            We may ask you to sign in with your Google (Gmail) account before you order. We use it only to confirm you are a real customer and to stop fake and scam
             orders. See our{' '}
             <Link to="/privacy" className="font-semibold text-brand-ink underline underline-offset-2">
               Privacy Policy
@@ -73,7 +73,7 @@ export default function Terms() {
         </LegalSection>
 
         <LegalSection title="Fake and scam orders">
-          <p>We may refuse future orders from phone numbers or Google or Facebook accounts linked to fake, scam or unpaid orders.</p>
+          <p>We may refuse future orders from phone numbers or Google accounts linked to fake, scam or unpaid orders.</p>
         </LegalSection>
 
         <LegalSection title="Changes to these terms">

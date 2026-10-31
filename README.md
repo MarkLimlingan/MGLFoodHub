@@ -15,6 +15,7 @@ React + Vite + TypeScript + Tailwind (shadcn-style components) · Supabase (Post
    - `supabase/migrations/20261007000200_functions.sql`: `place_order`, `get_order_by_token`, `find_order`, `request_cancellation`, `resubmit_gcash_proof`, `get_checkout_info`, `admin_order_action`
    - `supabase/migrations/20261007000300_seed_menu.sql`: all 14 stores, 81 sections, 423 products, 542 variants (generated, see §5)
    - `supabase/migrations/20261031000100_edit_order.sql`: Admin → Edit Order (`admin_edit_order` and the private `order_edits` history). On a database set up before Edit Order, run just this file.
+   - `supabase/updates/20261102_qa_fixes.sql`: QA fixes for a database set up before 2026-11-02 (balance due after editing a paid order, payment screenshot after switching to online payment, Edit Order date rules, owner number check). New databases get all of it from the migrations.
    - `supabase/migrations/20261101000100_owner_contact.sql`: the **Owner contact number** in Admin → Settings, shown in the Wet Foods "Request a Fish" pop-up (`get_owner_contact`). On an existing database, run just this file.
 3. **Auth → Providers → Email**: turn **off** "Allow new users to sign up" (turn it back **on** if you use Google verification, §6b; orders still require a Google account, so email sign ups can't order or see anything).
 4. Create the admin account(s): **Authentication → Users → Add user** (email + password, auto-confirm), then in the SQL editor:
@@ -72,7 +73,7 @@ supabase secrets set RESEND_API_KEY=re_xxx RESEND_FROM="MGL Food Hub <orders@you
 ```
 Then turn on **Email confirmations** in Admin → Settings. The function only emails the address on the order, only once, and only within 15 minutes of the order being placed.
 
-## 6b. Optional: Google (Gmail) or Facebook verification at checkout (anti-scam)
+## 6b. Optional: Google (Gmail) verification at checkout (anti-scam)
 
 When **Admin → Settings → Require Google account at checkout** is on, customers must sign in with Google before they can check out (the cart and checkout show **Continue with Google**), and `place_order` rejects anyone not signed in with Google (checked from the token's `app_metadata`, which only Supabase Auth can write). Each order saves the Google name, Gmail address and photo, the admin order page shows how many orders and cancellations that Google account has, and the daily order limit also applies per Google account.
 
@@ -83,16 +84,7 @@ When **Admin → Settings → Require Google account at checkout** is on, custom
 5. **Google Auth Platform → Audience → Publish app** so any Gmail can sign in (in Testing, only listed test users can).
 6. Test a Google sign in from the cart, then turn the switch on in Admin → Settings.
 
-**Facebook as a second option.** The same switch also accepts a Facebook account: `place_order` lets in either one and saves which in `orders.verified_with` (the `google_*` columns hold the name, email and photo from either). The cart and checkout always show **Continue with Facebook** next to Google; until Facebook is enabled in Supabase, tapping it tells the customer to use Google for now instead of opening Supabase's error page. Set it up in this order:
-
-1. Run the latest `supabase/migrations/20261007000100_schema.sql` and `20261007000200_functions.sql` (or `setup-all.sql`) **first**, so the database accepts Facebook before customers can use it.
-2. **developers.facebook.com → My Apps → Create app**, use case **Authenticate and request data from users with Facebook Login**. Under the Facebook Login use case, add the **email** permission (`public_profile` is already there).
-3. **Facebook Login → Settings → Valid OAuth Redirect URIs**: `https://<project-ref>.supabase.co/auth/v1/callback`.
-4. **App settings → Basic**: Privacy Policy URL `https://<your-domain>/privacy`, Terms of Service URL `https://<your-domain>/terms`, User data deletion → Data deletion instructions URL `https://<your-domain>/privacy#delete-data`, a category and a 1024×1024 icon. Copy the **App ID** and **App secret**.
-5. **Supabase → Authentication → Sign In / Providers → Facebook**: enable, paste the App ID (client ID) and App secret.
-6. **Publish** the app in the Meta dashboard so anyone can sign in (unpublished, only people with a role on the app can).
-
-Facebook accounts made with only a phone number have no email, and Supabase turns them away; the site tells them to use Google instead. Google sign in doesn't work inside Facebook's and Messenger's built-in browser, so there the Facebook button comes first.
+**Facebook sign in was removed** (2026-11-02). The site only offers Google. `place_order` still accepts a Facebook token and `orders.verified_with` still marks the few orders placed with Facebook, so switch Facebook **off** in Supabase → Authentication → Sign In / Providers. Google sign in doesn't work inside Facebook's and Messenger's built-in browser, so there the cart shows a **Copy link** button to open the page in Chrome or Safari.
 
 ## 7. Deploy
 

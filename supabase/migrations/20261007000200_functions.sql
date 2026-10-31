@@ -547,6 +547,10 @@ as $$
     'customer_notes', o.customer_notes,
     'cancel_reason', o.cancel_reason,
     'cancel_requested', o.cancel_requested,
+    -- Online payment with no screenshot yet (rejected, or switched to online by the admin): the page asks for one.
+    'needs_payment_proof', (o.payment_method <> 'cod' and o.order_status = 'processing'
+      and (o.payment_status = 'rejected' or (o.payment_status = 'pending_verification' and o.gcash_proof_path is null))),
+    'amount_paid', o.paid_amount,
     'created_at', o.created_at,
     'updated_at', o.updated_at,
     'items', coalesce((
@@ -658,7 +662,8 @@ begin
   if not found then
     raise exception 'Order not found.';
   end if;
-  if o.payment_method = 'cod' or o.payment_status <> 'rejected' or o.order_status <> 'processing' then
+  if o.payment_method = 'cod' or o.order_status <> 'processing'
+     or not (o.payment_status = 'rejected' or (o.payment_status = 'pending_verification' and o.gcash_proof_path is null)) then
     raise exception 'This order is not waiting for a new payment proof.';
   end if;
   if v_ref is null or v_ref !~ '^[A-Z0-9-]{4,40}$' then

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { Lock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -9,6 +9,9 @@ import { Logo } from '@/components/Logo'
 import { FullScreenSpinner, useAdminAuth } from './AdminAuth'
 
 export default function AdminLogin() {
+  useEffect(() => {
+    document.title = 'MGL Food Hub · Admin'
+  }, [])
   const { status, signIn } = useAdminAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')

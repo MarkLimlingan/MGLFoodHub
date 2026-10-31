@@ -34,7 +34,6 @@ export function AdminRoot() {
     meta.name = 'robots'
     meta.content = 'noindex, nofollow'
     document.head.appendChild(meta)
-    document.title = 'MGL Food Hub · Admin'
     return () => meta.remove()
   }, [])
 

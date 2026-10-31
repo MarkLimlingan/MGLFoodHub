@@ -18,6 +18,7 @@ set search_path = public
 as $$
   select jsonb_build_object('phone', case
     when btrim(coalesce(public.setting('owner_phone') #>> '{}', '')) ~ '^\+?[0-9() -]{7,20}$'
+      and length(regexp_replace(public.setting('owner_phone') #>> '{}', '\D', '', 'g')) >= 7
       then btrim(public.setting('owner_phone') #>> '{}')
     else ''
   end);

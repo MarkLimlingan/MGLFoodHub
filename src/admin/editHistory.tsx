@@ -18,6 +18,7 @@ const FIELD_LABEL: Record<string, string> = {
   subtotal: 'Food subtotal',
   delivery_fee: 'Delivery fee',
   total: 'Total',
+  paid_amount: 'Amount paid (difference settled)',
 }
 
 function formatValue(field: string, v: string | null): string {
@@ -34,6 +35,7 @@ function formatValue(field: string, v: string | null): string {
     case 'subtotal':
     case 'delivery_fee':
     case 'total':
+    case 'paid_amount':
       return peso(v)
     default:
       return v

@@ -71,6 +71,7 @@ export default function Track() {
       <EmptyState
         icon={<PackageSearch />}
         title={error ? 'Could not load your order' : 'Order not found'}
+        as="h1"
         action={
           <div className="flex gap-2">
             {error && <Button onClick={() => void reload()}>Try again</Button>}
@@ -88,7 +89,7 @@ export default function Track() {
   const status = customerStatus(order)
   const steps = progressSteps(order)
   const canRequestCancel = order.order_status === 'processing' && !order.cancel_requested
-  const needsProof = isOnline(order.payment_method) && order.payment_status === 'rejected' && order.order_status === 'processing'
+  const needsProof = order.needs_payment_proof ?? (isOnline(order.payment_method) && order.payment_status === 'rejected' && order.order_status === 'processing')
 
   return (
     <div className="mx-auto max-w-2xl space-y-5 px-3 sm:px-4 py-8 sm:py-12">
@@ -136,7 +137,7 @@ export default function Track() {
         </div>
       </div>
 
-      {needsProof && <ResubmitProof token={token} label={PAYMENT_METHOD_LABEL[order.payment_method]} onDone={reload} />}
+      {needsProof && <ResubmitProof token={token} label={PAYMENT_METHOD_LABEL[order.payment_method]} first={order.payment_status !== 'rejected'} onDone={reload} />}
 
       {/* Progress */}
       {order.order_status !== 'cancelled' && (
@@ -248,9 +249,20 @@ function Totals({ order }: { order: PublicOrder }) {
         <span>Total</span>
         <span className="tabular-nums">{peso(order.total)}</span>
       </div>
-      {isOnline(order.payment_method) && order.payment_status === 'paid' && (
-        <p className="text-xs text-emerald-700">✓ Food subtotal paid via {PAYMENT_METHOD_LABEL[order.payment_method]}{fee > 0 ? '. Please pay the delivery fee to the rider.' : '.'}</p>
-      )}
+      {isOnline(order.payment_method) && order.payment_status === 'paid' && (() => {
+        // Edited after payment: show what was paid and the difference.
+        const paid = order.amount_paid ?? null
+        const diff = paid === null ? 0 : Number(order.subtotal) - Number(paid)
+        if (Math.abs(diff) < 0.005) {
+          return <p className="text-xs text-emerald-700">✓ Food subtotal paid via {PAYMENT_METHOD_LABEL[order.payment_method]}{fee > 0 ? '. Please pay the delivery fee to the rider.' : '.'}</p>
+        }
+        return (
+          <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            You paid {peso(paid!)} via {PAYMENT_METHOD_LABEL[order.payment_method]}. Your order was updated, so there is a{' '}
+            <strong>{diff > 0 ? `balance of ${peso(diff)}` : `refund of ${peso(-diff)}`}</strong>. Our team will contact you about it.
+          </p>
+        )
+      })()}
     </div>
   )
 }
@@ -303,7 +315,7 @@ function CancelRequest({ token, onDone }: { token: string; onDone: () => Promise
   )
 }
 
-function ResubmitProof({ token, label, onDone }: { token: string; label: string; onDone: () => Promise<void> }) {
+function ResubmitProof({ token, label, first, onDone }: { token: string; label: string; first?: boolean; onDone: () => Promise<void> }) {
   const deviceId = useCart((s) => s.deviceId)
   const [ref, setRef] = useState('')
   const [file, setFile] = useState<File | null>(null)
@@ -319,7 +331,7 @@ function ResubmitProof({ token, label, onDone }: { token: string; label: string;
       if (up.error) throw new Error('Could not upload your screenshot. Please try again.')
       const { error } = await supabase.rpc('resubmit_gcash_proof', { p_token: token, p_ref: ref.trim(), p_path: path })
       if (error) throw error
-      toast.success('New payment proof sent! We will verify it shortly.')
+      toast.success(first ? 'Payment proof sent! We will verify it shortly.' : 'New payment proof sent! We will verify it shortly.')
       await onDone()
     } catch (e) {
       toast.error(errorMessage(e))
@@ -329,7 +341,7 @@ function ResubmitProof({ token, label, onDone }: { token: string; label: string;
   }
   return (
     <div className="surface-card space-y-3 rounded-2xl p-4 sm:p-5">
-      <h2 className="font-heading font-bold">Upload a new {label} payment proof</h2>
+      <h2 className="font-heading font-bold">{first ? `Upload your ${label} payment proof` : `Upload a new ${label} payment proof`}</h2>
       <Field label={`${label} Reference No.`} required>
         <Input value={ref} onChange={(e) => setRef(e.target.value)} inputMode="numeric" placeholder="e.g. 1234 567 890123" />
       </Field>
@@ -338,13 +350,13 @@ function ResubmitProof({ token, label, onDone }: { token: string; label: string;
           <ImagePlus className="size-5" />
         </span>
         <span className="text-sm">
-          <span className="block font-semibold">{file ? file.name : 'Upload new screenshot'}</span>
+          <span className="block font-semibold">{file ? file.name : first ? 'Upload screenshot' : 'Upload new screenshot'}</span>
           <span className="block text-xs text-navy/70">JPG or PNG</span>
         </span>
         <input type="file" accept="image/*" className="sr-only" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
       </label>
       <Button className="w-full" loading={busy} onClick={() => void submit()}>
-        Send new proof
+        {first ? 'Send payment proof' : 'Send new proof'}
       </Button>
     </div>
   )

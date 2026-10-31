@@ -14,7 +14,7 @@ import { Field } from '@/components/ui/label'
 import { RadioCard, RadioGroup, Skeleton } from '@/components/ui/controls'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { EmptyState, ErrorBanner, Lightbox, SmartImage } from '@/components/common'
-import { GoogleLogo } from '@/components/GoogleLink'
+import { FacebookLogo, GoogleLogo } from '@/components/GoogleLink'
 import { PaymentLogo } from '@/components/PaymentLogo'
 import { AdminPageHeader, OrderBadges, Panel } from './ui'
 import { useAdminLive } from './AdminLayout'
@@ -429,13 +429,16 @@ export default function OrderDetail() {
                   )}
                 </div>
                 <p>Amount expected: <strong>{peso(o.subtotal)}</strong></p>
+                <BalanceDue order={o} onSettled={load} />
                 {proofUrl ? (
                   <button type="button" onClick={() => setProofOpen(true)} className="block w-full overflow-hidden rounded-xl border border-sand-200">
                     <img src={proofUrl} alt={`${methodLabel} payment proof`} className="max-h-80 w-full object-contain bg-navy-50" />
                     <span className="block py-1.5 text-center text-xs font-semibold text-brand-600">Tap to zoom</span>
                   </button>
                 ) : (
-                  <p className="text-navy/55">{o.gcash_proof_path ? 'Loading proof…' : 'No proof uploaded.'}</p>
+                  <p className="text-navy/55">
+                    {o.gcash_proof_path ? 'Loading proof…' : 'No proof uploaded yet. The customer can upload it on their tracking page.'}
+                  </p>
                 )}
                 {o.payment_rejection_reason && <p className="text-brand-red">Rejected: {o.payment_rejection_reason}</p>}
               </div>
@@ -611,14 +614,15 @@ function GoogleAccount({ order }: { order: OrderRow }) {
   }, [userId, order.order_status])
 
   if (!userId) return null
+  const facebook = order.verified_with === 'facebook'
   return (
     <div className="mt-2 flex items-center gap-2.5 rounded-xl bg-[#4285F4]/[0.06] px-3 py-2">
       <SmartImage src={order.google_picture} alt="" className="size-9 shrink-0 rounded-full" />
       <div className="min-w-0 text-sm">
         <p className="flex items-center gap-1 text-xs font-semibold text-navy/60">
-          <GoogleLogo className="size-3.5" /> Google verified
+          {facebook ? <FacebookLogo className="size-3.5" /> : <GoogleLogo className="size-3.5" />} {facebook ? 'Facebook verified' : 'Google verified'}
         </p>
-        <p className="truncate font-semibold">{order.google_name ?? 'Google user'}</p>
+        <p className="truncate font-semibold">{order.google_name ?? (facebook ? 'Facebook user' : 'Google user')}</p>
         {order.google_email && <p className="truncate text-xs text-navy/60">{order.google_email}</p>}
         {stats && (
           <p className={cn('text-xs', stats.cancelled ? 'font-semibold text-brand-red' : 'text-navy/55')}>
@@ -626,6 +630,41 @@ function GoogleAccount({ order }: { order: OrderRow }) {
           </p>
         )}
       </div>
+    </div>
+  )
+}
+
+/** Paid online, then Edit Order changed the food subtotal: what was paid and the difference to settle. */
+function BalanceDue({ order, onSettled }: { order: OrderRow; onSettled: () => Promise<void> }) {
+  const [busy, setBusy] = useState(false)
+  if (order.paid_amount === null || order.paid_amount === undefined) return null
+  const diff = Math.round((Number(order.subtotal) - Number(order.paid_amount)) * 100) / 100
+  if (diff === 0) return null
+  return (
+    <div className="space-y-2 rounded-xl bg-amber-50 p-3 text-amber-900">
+      <p>
+        Paid <strong>{peso(order.paid_amount)}</strong> before the order was edited.{' '}
+        {diff > 0 ? (
+          <>Balance due: <strong>{peso(diff)}</strong></>
+        ) : (
+          <>Refund due: <strong>{peso(-diff)}</strong></>
+        )}
+      </p>
+      <Button
+        size="sm"
+        variant="outline"
+        loading={busy}
+        onClick={async () => {
+          setBusy(true)
+          const { error } = await supabase.rpc('admin_settle_balance', { p_order_id: order.id })
+          setBusy(false)
+          if (error) return toast.error(errorMessage(error))
+          toast.success(diff > 0 ? 'Balance marked as collected' : 'Refund marked as sent')
+          await onSettled()
+        }}
+      >
+        <CheckCircle2 /> {diff > 0 ? 'Mark balance collected' : 'Mark refund sent'}
+      </Button>
     </div>
   )
 }

@@ -8,7 +8,7 @@ import type { OptionChoice, OrderEditChange, OrderItemRow, OrderOption, OrderRow
 import { COD_MAX, COD_MAX_LABEL, ONLINE_METHODS, PAYMENT_METHOD_LABEL } from '@/lib/orderStatus'
 import { computeSlots } from '@/lib/slots'
 import {
-  cn, copyText, formatDate, formatDateTime, formatHours, isValidEmail, manilaNow, normalizePhone, peso, randomId, slotLabel, toCents, trackingUrl,
+  addDays, cn, copyText, formatDate, formatDateTime, formatHours, isValidEmail, manilaNow, normalizePhone, peso, randomId, slotLabel, toCents, trackingUrl,
 } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input, NativeSelect, Textarea } from '@/components/ui/input'
@@ -245,11 +245,26 @@ export default function OrderEdit() {
   }, [order, form, items, lines, views, subtotalCents, feeCents, totalCents])
 
   const dirty = changes.length > 0
+  const [leaveTo, setLeaveTo] = useState<string | null>(null)
   useEffect(() => {
     if (!dirty) return
     const warn = (e: BeforeUnloadEvent) => e.preventDefault()
+    // Links inside the admin (sidebar, mobile menu) ask before the unsaved changes are lost.
+    const onClick = (e: MouseEvent) => {
+      if (saved.current || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+      const a = (e.target as HTMLElement | null)?.closest('a[href]') as HTMLAnchorElement | null
+      if (!a || a.target === '_blank' || a.origin !== window.location.origin) return
+      if (a.pathname === window.location.pathname) return
+      e.preventDefault()
+      e.stopPropagation()
+      setLeaveTo(a.pathname + a.search + a.hash)
+    }
     window.addEventListener('beforeunload', warn)
-    return () => window.removeEventListener('beforeunload', warn)
+    document.addEventListener('click', onClick, true)
+    return () => {
+      window.removeEventListener('beforeunload', warn)
+      document.removeEventListener('click', onClick, true)
+    }
   }, [dirty])
 
   if (missing) return <EmptyState title="Order not found" action={<Button asChild><Link to="/admin/orders">Back to orders</Link></Button>} />
@@ -285,6 +300,8 @@ export default function OrderEdit() {
   const amountChanged = changes.some((c) => c.field === 'total' || c.field === 'subtotal' || c.field === 'delivery_fee')
   const scheduleChanged = changes.some((c) => c.field === 'delivery_date' || c.field === 'delivery_slot')
   const subtotalDiff = subtotalCents - toCents(o.subtotal)
+  const paidCents = toCents(o.paid_amount ?? o.subtotal)
+  const paidDiff = subtotalCents - paidCents
   const removed = items.filter((i) => !lines.some((l) => l.id === i.id))
   const slotOptions = slotInfo.slots.some((s) => s.value === form.delivery_slot)
     ? slotInfo.slots
@@ -312,6 +329,8 @@ export default function OrderEdit() {
     if (f.city.trim().length < 2) e.city = 'Enter the city.'
     if (!/^\d{4}-\d{2}-\d{2}$/.test(f.delivery_date)) e.delivery_date = 'Choose a delivery date.'
     else if (f.delivery_date !== o.delivery_date && f.delivery_date < today) e.delivery_date = 'The delivery date cannot be in the past.'
+    else if (f.delivery_date !== o.delivery_date && f.delivery_date === today) e.delivery_date = 'Same day delivery is not available. Choose tomorrow or later.'
+    else if (f.delivery_date !== o.delivery_date && blockedDates.includes(f.delivery_date)) e.delivery_date = 'This date is blocked in Settings. Choose another date.'
     if ((itemsChanged || f.delivery_slot !== o.delivery_slot) && scheduleOpen) {
       if (slotInfo.conflict) e.delivery_slot = slotInfo.conflict
       else if (!slotInfo.slots.some((s) => s.value === f.delivery_slot)) e.delivery_slot = 'Choose a time slot inside the store hours.'
@@ -387,6 +406,7 @@ export default function OrderEdit() {
   }
 
   const cancelEdit = () => (dirty ? setDiscardOpen(true) : navigate(backTo))
+  const discardTo = leaveTo ?? backTo
 
   const actions = (
     <>
@@ -413,6 +433,13 @@ export default function OrderEdit() {
           <Button size="sm" variant="outline" className="shrink-0" onClick={() => void load()}>
             <RotateCcw /> Reload latest
           </Button>
+        </div>
+      )}
+      {o.cancel_requested && (
+        <div className="rounded-2xl border-2 border-brand-red/40 bg-red-50 p-4 text-sm">
+          <p className="font-heading font-bold text-red-800">The customer asked to cancel this order</p>
+          {o.cancel_request_reason && <p className="mt-0.5 break-words text-red-900/80">“{o.cancel_request_reason}”</p>}
+          <p className="mt-1 text-red-900/80">Check with them before editing. To cancel or decline the request, go back to the order page.</p>
         </div>
       )}
       {saveError && !stale && <ErrorBanner>{saveError} Your changes are still here, nothing was saved.</ErrorBanner>}
@@ -468,13 +495,13 @@ export default function OrderEdit() {
                 htmlFor="ed-date"
                 required
                 error={errors.delivery_date}
-                hint={dateBlocked ? 'Heads up: this date is marked as closed in Settings.' : form.delivery_date !== o.delivery_date ? `Was ${formatDate(o.delivery_date)}` : undefined}
+                hint={form.delivery_date !== o.delivery_date ? `Was ${formatDate(o.delivery_date)}` : dateBlocked ? 'This date is blocked in Settings.' : undefined}
               >
                 <Input
                   id="ed-date"
                   type="date"
                   value={form.delivery_date}
-                  min={form.delivery_date < today ? undefined : today}
+                  min={form.delivery_date <= today ? undefined : addDays(today, 1)}
                   onChange={(e) => set('delivery_date', e.target.value)}
                   disabled={!scheduleOpen}
                   aria-invalid={!!errors.delivery_date}
@@ -636,7 +663,7 @@ export default function OrderEdit() {
                         ? form.payment_method === 'cod'
                           ? 'The order becomes Cash on Delivery (unpaid).'
                           : o.payment_method === 'cod'
-                            ? 'The order will wait for payment. Confirm it after you check the payment in your app.'
+                            ? 'The customer is asked to upload their payment screenshot on the tracking page. Confirm the order after you check it.'
                             : 'The reference number and screenshot stay on the order.'
                         : undefined
                   }
@@ -676,11 +703,11 @@ export default function OrderEdit() {
                   <p className="text-xs text-navy/55">Total = food subtotal + delivery fee. It is calculated for you and can't be typed in.</p>
                 </div>
 
-                {o.payment_method !== 'cod' && subtotalDiff !== 0 && (
+                {o.payment_method !== 'cod' && o.payment_status === 'paid' && paidDiff !== 0 && (
                   <p className="flex gap-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
                     <AlertTriangle className="mt-0.5 size-4 shrink-0" />
                     <span>
-                      The customer {o.payment_status === 'paid' ? 'paid' : 'sent'} {peso(o.subtotal)} for the food. The new subtotal is {subtotalDiff > 0 ? `${peso(subtotalDiff / 100)} more` : `${peso(-subtotalDiff / 100)} less`}, so settle the difference with them. The payment status stays the same.
+                      The customer paid {peso(paidCents / 100)} for the food. After saving there is a {paidDiff > 0 ? `balance due of ${peso(paidDiff / 100)}` : `refund due of ${peso(-paidDiff / 100)}`}. It shows on the order page until you mark it settled.
                     </span>
                   </p>
                 )}
@@ -735,13 +762,36 @@ export default function OrderEdit() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={discardOpen} onOpenChange={setDiscardOpen}>
+      <Dialog
+        open={discardOpen || leaveTo !== null}
+        onOpenChange={(open) => {
+          if (open) return
+          setDiscardOpen(false)
+          setLeaveTo(null)
+        }}
+      >
         <DialogContent>
           <DialogTitle>Discard your changes?</DialogTitle>
           <DialogDescription>You have {changes.length} unsaved {changes.length === 1 ? 'change' : 'changes'}. The order stays as it was.</DialogDescription>
           <div className="mt-5 flex flex-wrap justify-end gap-2">
-            <Button variant="outline" onClick={() => setDiscardOpen(false)}>Keep editing</Button>
-            <Button variant="destructive" onClick={() => navigate(backTo)}>Discard changes</Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDiscardOpen(false)
+                setLeaveTo(null)
+              }}
+            >
+              Keep editing
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                saved.current = true
+                navigate(discardTo)
+              }}
+            >
+              Discard changes
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

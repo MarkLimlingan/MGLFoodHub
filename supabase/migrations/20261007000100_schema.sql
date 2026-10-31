@@ -149,6 +149,9 @@ alter table public.orders add column if not exists google_email text;
 alter table public.orders add column if not exists google_picture text;
 alter table public.orders add column if not exists verified_with text check (verified_with in ('google', 'facebook'));
 create index if not exists orders_customer_user_idx on public.orders(customer_user_id);
+-- What the customer actually paid online, kept when Admin → Edit Order changes the food subtotal of a paid
+-- order (null = the subtotal was paid). The difference is the balance due or refund due.
+alter table public.orders add column if not exists paid_amount numeric(10,2);
 -- Facebook verification was replaced by Google before it was ever switched on.
 alter table public.orders drop column if exists facebook_name;
 alter table public.orders drop column if exists facebook_picture;

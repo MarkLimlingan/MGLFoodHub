@@ -93,6 +93,8 @@ export function historyLabel(status: string, method: PaymentMethod): string {
       return 'Cancellation Request Declined'
     case 'delivery_fee_updated':
       return 'Delivery Fee Added'
+    case 'order_updated':
+      return 'Order Updated'
     default:
       return status.replace(/_/g, ' ')
   }
@@ -136,6 +138,13 @@ export function customerStatus(o: PublicOrder): StatusMessage {
   const label = PAYMENT_METHOD_LABEL[o.payment_method]
   switch (o.order_status) {
     case 'processing':
+      if (o.payment_status === 'pending_verification' && o.needs_payment_proof) {
+        return {
+          title: 'Waiting for Your Payment',
+          message: `Please send your ${label} payment, then upload the screenshot below.`,
+          tone: 'warning',
+        }
+      }
       if (o.payment_status === 'rejected') {
         return {
           title: 'Payment Rejected ❌',

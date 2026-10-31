@@ -155,6 +155,9 @@ alter table public.orders add column if not exists google_email text;
 alter table public.orders add column if not exists google_picture text;
 alter table public.orders add column if not exists verified_with text check (verified_with in ('google', 'facebook'));
 create index if not exists orders_customer_user_idx on public.orders(customer_user_id);
+-- What the customer actually paid online, kept when Admin → Edit Order changes the food subtotal of a paid
+-- order (null = the subtotal was paid). The difference is the balance due or refund due.
+alter table public.orders add column if not exists paid_amount numeric(10,2);
 -- Facebook verification was replaced by Google before it was ever switched on.
 alter table public.orders drop column if exists facebook_name;
 alter table public.orders drop column if exists facebook_picture;
@@ -1002,6 +1005,10 @@ as $$
     'customer_notes', o.customer_notes,
     'cancel_reason', o.cancel_reason,
     'cancel_requested', o.cancel_requested,
+    -- Online payment with no screenshot yet (rejected, or switched to online by the admin): the page asks for one.
+    'needs_payment_proof', (o.payment_method <> 'cod' and o.order_status = 'processing'
+      and (o.payment_status = 'rejected' or (o.payment_status = 'pending_verification' and o.gcash_proof_path is null))),
+    'amount_paid', o.paid_amount,
     'created_at', o.created_at,
     'updated_at', o.updated_at,
     'items', coalesce((
@@ -1113,7 +1120,8 @@ begin
   if not found then
     raise exception 'Order not found.';
   end if;
-  if o.payment_method = 'cod' or o.payment_status <> 'rejected' or o.order_status <> 'processing' then
+  if o.payment_method = 'cod' or o.order_status <> 'processing'
+     or not (o.payment_status = 'rejected' or (o.payment_status = 'pending_verification' and o.gcash_proof_path is null)) then
     raise exception 'This order is not waiting for a new payment proof.';
   end if;
   if v_ref is null or v_ref !~ '^[A-Z0-9-]{4,40}$' then
@@ -2581,6 +2589,7 @@ declare
   v_fee numeric(10,2);
   v_method text;
   v_payment_status public.payment_status;
+  v_paid numeric(10,2);
   -- items
   v_items_given boolean := jsonb_typeof(c->'items') = 'array';
   v_item jsonb;
@@ -2666,12 +2675,19 @@ begin
     raise exception 'This order is already %, so the delivery schedule can no longer be changed.',
       case o.order_status when 'out_for_delivery' then 'out for delivery' else o.order_status::text end;
   end if;
+  -- A new date follows the checkout rules: no same day delivery, no blocked dates.
   if v_date <> o.delivery_date then
     if v_date < v_today then
       raise exception 'The delivery date cannot be in the past.';
     end if;
+    if v_date = v_today then
+      raise exception 'Same day delivery is not available. Please choose tomorrow or a later date.';
+    end if;
     if v_date > v_today + 365 then
       raise exception 'Please choose a delivery date within the next year.';
+    end if;
+    if coalesce(public.setting('blocked_dates'), '[]'::jsonb) ? to_char(v_date, 'YYYY-MM-DD') then
+      raise exception 'We are not accepting deliveries on % (blocked in Settings). Please choose another date.', to_char(v_date, 'Mon DD, YYYY');
     end if;
   end if;
 
@@ -2962,6 +2978,13 @@ begin
     raise exception 'There are no changes to save.';
   end if;
 
+  -- Paid online and the food subtotal changes: remember what was actually paid, so the
+  -- balance due or refund due shows until the admin marks it settled.
+  v_paid := o.paid_amount;
+  if v_paid is null and o.payment_method <> 'cod' and o.payment_status = 'paid' and v_subtotal <> o.subtotal then
+    v_paid := o.subtotal;
+  end if;
+
   -- Save. Order id, number, tracking token, status and created_at never change.
   if v_items_changed then
     delete from public.order_items where order_id = o.id and not (id = any(v_kept));
@@ -2997,7 +3020,7 @@ begin
          delivery_date = v_date, delivery_slot = v_slot,
          payment_method = v_method::public.payment_method, payment_status = v_payment_status,
          payment_rejection_reason = case when v_method = 'cod' then null else payment_rejection_reason end,
-         subtotal = v_subtotal, delivery_fee = v_fee, total = v_subtotal + v_fee
+         subtotal = v_subtotal, delivery_fee = v_fee, total = v_subtotal + v_fee, paid_amount = v_paid
    where id = o.id;
 
   -- The delivery fee is shown to the customer, same as Admin → Save fee.
@@ -3005,12 +3028,50 @@ begin
     insert into public.order_status_history (order_id, status, note, changed_by, changed_by_email)
     values (o.id, 'delivery_fee_updated', 'Delivery fee set to ₱' || to_char(v_fee, 'FM999,999,990.00') || '.', v_uid, v_email);
   end if;
+  -- Anything else the customer can see on the tracking page: tell them it changed (the details stay private).
+  if exists (select 1 from jsonb_array_elements(v_changes) as x where x->>'field' not in ('email', 'delivery_fee', 'total')) then
+    insert into public.order_status_history (order_id, status, note, changed_by, changed_by_email)
+    values (o.id, 'order_updated', 'Our team updated your order details. Please check them below.', v_uid, v_email);
+  end if;
 
   insert into public.order_edits (order_id, changes, edited_by, edited_by_email)
   values (o.id, v_changes, v_uid, v_email);
 
   return jsonb_build_object('subtotal', v_subtotal, 'delivery_fee', v_fee, 'total', v_subtotal + v_fee, 'changes', jsonb_array_length(v_changes));
 end $$;
+
+-- ---------------------------------------------------------------------
+-- Admin: the balance due or refund due of an edited paid order was settled
+-- with the customer. Recorded in the edit history.
+-- ---------------------------------------------------------------------
+create or replace function public.admin_settle_balance(p_order_id uuid)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  o public.orders;
+begin
+  if not public.is_admin() then
+    raise exception 'Not authorized.' using errcode = '42501';
+  end if;
+  select * into o from public.orders where id = p_order_id for update;
+  if not found then
+    raise exception 'Order not found.';
+  end if;
+  if o.paid_amount is null or o.paid_amount = o.subtotal then
+    raise exception 'This order has no balance to settle.';
+  end if;
+  update public.orders set paid_amount = subtotal where id = o.id;
+  insert into public.order_edits (order_id, changes, edited_by, edited_by_email)
+  values (o.id, jsonb_build_array(jsonb_build_object('field', 'paid_amount', 'from', o.paid_amount::text, 'to', o.subtotal::text)),
+          auth.uid(), auth.jwt() ->> 'email');
+end $$;
+
+revoke execute on function public.admin_settle_balance(uuid) from public, anon;
+grant execute on function public.admin_settle_balance(uuid) to authenticated;
 
 revoke execute on function public.admin_edit_order(uuid, jsonb, timestamptz) from public, anon;
 grant execute on function public.admin_edit_order(uuid, jsonb, timestamptz) to authenticated;
@@ -3037,6 +3098,7 @@ set search_path = public
 as $$
   select jsonb_build_object('phone', case
     when btrim(coalesce(public.setting('owner_phone') #>> '{}', '')) ~ '^\+?[0-9() -]{7,20}$'
+      and length(regexp_replace(public.setting('owner_phone') #>> '{}', '\D', '', 'g')) >= 7
       then btrim(public.setting('owner_phone') #>> '{}')
     else ''
   end);

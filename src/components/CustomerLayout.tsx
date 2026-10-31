@@ -205,9 +205,9 @@ function Footer() {
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-navy/75">
             <span>© {new Date().getFullYear()} MGL Food Hub. All rights reserved.</span>
             <span className="flex flex-wrap gap-x-4 gap-y-1">
-              <Link to="/privacy" className="underline-offset-4 hover:text-navy hover:underline hover:decoration-brand">Privacy Policy</Link>
-              <Link to="/terms" className="underline-offset-4 hover:text-navy hover:underline hover:decoration-brand">Terms of Service</Link>
-              <button type="button" onClick={() => openGuidelines(true)} className="underline-offset-4 hover:text-navy hover:underline hover:decoration-brand">
+              <Link to="/privacy" className="inline-flex min-h-6 items-center underline-offset-4 hover:text-navy hover:underline hover:decoration-brand">Privacy Policy</Link>
+              <Link to="/terms" className="inline-flex min-h-6 items-center underline-offset-4 hover:text-navy hover:underline hover:decoration-brand">Terms of Service</Link>
+              <button type="button" onClick={() => openGuidelines(true)} className="inline-flex min-h-6 items-center underline-offset-4 hover:text-navy hover:underline hover:decoration-brand">
                 Ordering guidelines
               </button>
             </span>
