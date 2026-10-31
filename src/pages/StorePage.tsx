@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/controls'
 import { Disclaimer, EmptyState, Lightbox, SmartImage } from '@/components/common'
 import { ProductCard } from '@/components/ProductCard'
 import { Reveal } from '@/components/Reveal'
+import { FishRequest } from '@/components/FishRequest'
 
 export default function StorePage() {
   const { slug = '' } = useParams()
@@ -201,6 +202,8 @@ export default function StorePage() {
             </section>
           )
         })}
+        {/* Wet Foods: a fish that isn't listed can be requested from the owner. */}
+        {category?.slug === 'wet-foods' && <FishRequest />}
         <Disclaimer />
       </div>
 

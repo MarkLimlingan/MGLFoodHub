@@ -15,6 +15,7 @@ import { EmptyState, ErrorBanner, SmartImage } from '@/components/common'
 import { Logo } from '@/components/Logo'
 import { InstallBanner } from '@/components/InstallApp'
 import { Reveal } from '@/components/Reveal'
+import { FishRequest } from '@/components/FishRequest'
 
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
@@ -465,6 +466,9 @@ function WetFoodsSection() {
           </Reveal>
         ))}
       </div>
+      <Reveal className="mt-5">
+        <FishRequest />
+      </Reveal>
     </section>
   )
 }
