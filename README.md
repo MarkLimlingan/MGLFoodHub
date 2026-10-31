@@ -15,6 +15,7 @@ React + Vite + TypeScript + Tailwind (shadcn-style components) · Supabase (Post
    - `supabase/migrations/20261007000200_functions.sql`: `place_order`, `get_order_by_token`, `find_order`, `request_cancellation`, `resubmit_gcash_proof`, `get_checkout_info`, `admin_order_action`
    - `supabase/migrations/20261007000300_seed_menu.sql`: all 14 stores, 81 sections, 423 products, 542 variants (generated, see §5)
    - `supabase/migrations/20261031000100_edit_order.sql`: Admin → Edit Order (`admin_edit_order` and the private `order_edits` history). On a database set up before Edit Order, run just this file.
+   - `supabase/migrations/20261101000100_owner_contact.sql`: the **Owner contact number** in Admin → Settings, shown in the Wet Foods "Request a Fish" pop-up (`get_owner_contact`). On an existing database, run just this file.
 3. **Auth → Providers → Email**: turn **off** "Allow new users to sign up" (turn it back **on** if you use Google verification, §6b; orders still require a Google account, so email sign ups can't order or see anything).
 4. Create the admin account(s): **Authentication → Users → Add user** (email + password, auto-confirm), then in the SQL editor:
    ```sql

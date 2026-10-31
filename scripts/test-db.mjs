@@ -598,5 +598,18 @@ await asSuper()
 const badTotals = (await pg.query(`select count(*)::int n from orders o where o.total <> o.subtotal + o.delivery_fee or o.subtotal <> (select sum(line_total) from order_items i where i.order_id = o.id)`)).rows[0].n
 ok(badTotals === 0, 'every order: subtotal = sum of items and total = subtotal + delivery fee')
 
+// ---------------------------------------------------------------------
+console.log('\nOwner contact (Wet Foods: Request a Fish)')
+await asRole('anon')
+ok((await pg.query('select get_owner_contact() as c')).rows[0].c.phone === '', 'owner number is empty until set, so the Call option stays hidden')
+await asRole('authenticated', adminId, 'admin@mgl.ph')
+await pg.query(`update settings set value = '"0917 555 1234"' where key = 'owner_phone'`)
+await asRole('anon')
+ok((await pg.query('select get_owner_contact() as c')).rows[0].c.phone === '0917 555 1234', 'customers get the owner number set in Admin → Settings')
+await expectError(pg, `select value from settings where key = 'owner_phone'`, [], 'permission denied', 'customers still cannot read the settings table')
+await asSuper()
+await pg.query(`update settings set value = '"call me maybe"' where key = 'owner_phone'`)
+ok((await pg.query('select get_owner_contact() as c')).rows[0].c.phone === '', 'a value that is not a phone number is never shown')
+
 console.log(`\n${passed} passed, ${failed} failed`)
 process.exit(failed ? 1 : 0)

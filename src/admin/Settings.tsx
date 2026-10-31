@@ -32,6 +32,7 @@ interface SettingsForm extends Record<AccountKey, string> {
   max_orders_per_phone_per_day: number
   ordering_guidelines: string[]
   require_google_login: boolean
+  owner_phone: string
 }
 
 const DEFAULTS: SettingsForm = {
@@ -44,6 +45,7 @@ const DEFAULTS: SettingsForm = {
   max_orders_per_phone_per_day: 5,
   ordering_guidelines: DEFAULT_GUIDELINES,
   require_google_login: false,
+  owner_phone: '',
 }
 
 export default function Settings() {
@@ -70,6 +72,7 @@ export default function Settings() {
     if (!form) return
     if (!/^\d{2}:\d{2}$/.test(form.cutoff_time)) return toast.error('Enter a valid cutoff time.')
     if (!(form.max_days_ahead >= 1 && form.max_days_ahead <= 365)) return toast.error('Max days ahead must be between 1 and 365.')
+    if (form.owner_phone.trim() && !/^\+?[0-9() -]{7,20}$/.test(form.owner_phone.trim())) return toast.error('Enter a valid owner contact number, or leave it empty.')
     setSaving(true)
     const now = new Date().toISOString()
     const rows = (Object.keys(DEFAULTS) as (keyof SettingsForm)[]).map((key) => ({
@@ -79,7 +82,9 @@ export default function Settings() {
           ? [...form.blocked_dates].sort()
           : key === 'ordering_guidelines'
             ? form.ordering_guidelines.map((g) => g.trim()).filter(Boolean)
-            : form[key],
+            : key === 'owner_phone'
+              ? form.owner_phone.trim()
+              : form[key],
       updated_at: now,
     }))
     const { error } = await supabase.from('settings').upsert(rows)
@@ -165,6 +170,9 @@ export default function Settings() {
 
         <Panel title="Ordering rules">
           <div className="space-y-4">
+            <Field label="Owner contact number" htmlFor="ownerphone" hint="Shown in the Wet Foods “Request a Fish” pop-up so customers can call. Leave empty to offer Facebook messages only.">
+              <Input id="ownerphone" type="tel" inputMode="tel" value={form.owner_phone} onChange={(e) => set('owner_phone', e.target.value)} placeholder="0917 123 4567" className="sm:w-64" />
+            </Field>
             <Field label="Cutoff time for next day orders (PH time)" htmlFor="cutoff" hint="After this time, the earliest delivery date becomes the day after tomorrow.">
               <Input id="cutoff" type="time" value={form.cutoff_time} onChange={(e) => set('cutoff_time', e.target.value)} className="w-40" />
             </Field>
