@@ -10,10 +10,11 @@ React + Vite + TypeScript + Tailwind (shadcn-style components) · Supabase (Post
 ## 1. Set up Supabase
 
 1. Create a project at [supabase.com](https://supabase.com).
-2. Quickest: paste **`supabase/setup-all.sql`** (all three files combined; safe to re-run) into **SQL Editor → Run**. If you change a migration, rebuild that file. Otherwise, run the three migrations **in order**. Either paste each one into **SQL Editor → Run**, or use the CLI (`supabase link` then `supabase db push`):
+2. Quickest: paste **`supabase/setup-all.sql`** (all the migrations combined; safe to re-run) into **SQL Editor → Run**. If you change a migration, rebuild that file. Otherwise, run the migrations **in order**. Either paste each one into **SQL Editor → Run**, or use the CLI (`supabase link` then `supabase db push`):
    - `supabase/migrations/20261007000100_schema.sql`: tables, RLS, grants, the price-lock trigger, storage buckets, realtime
    - `supabase/migrations/20261007000200_functions.sql`: `place_order`, `get_order_by_token`, `find_order`, `request_cancellation`, `resubmit_gcash_proof`, `get_checkout_info`, `admin_order_action`
    - `supabase/migrations/20261007000300_seed_menu.sql`: all 14 stores, 81 sections, 423 products, 542 variants (generated, see §5)
+   - `supabase/migrations/20261031000100_edit_order.sql`: Admin → Edit Order (`admin_edit_order` and the private `order_edits` history). On a database set up before Edit Order, run just this file.
 3. **Auth → Providers → Email**: turn **off** "Allow new users to sign up" (turn it back **on** if you use Google verification, §6b; orders still require a Google account, so email sign ups can't order or see anything).
 4. Create the admin account(s): **Authentication → Users → Add user** (email + password, auto-confirm), then in the SQL editor:
    ```sql
@@ -107,6 +108,7 @@ Any static host works. `npm run build` outputs `dist/`. SPA rewrites are include
 - **Orders.** `place_order` re-validates everything: prices, sold-out, store availability, date, slot, phone and email format, the honeypot, and 5 orders per phone per day. It then returns `MGL-YYMMDD-XXXX` plus a 32-character random tracking token.
 - **Tracking.** `/track/<token>` reads one order via `get_order_by_token` (customer-safe fields only). Anon users have no table access to orders at all. Every change pings a Realtime broadcast channel named after the token, and the page re-fetches, so status updates appear live.
 - **Admin.** Every status change goes through `admin_order_action`, which validates the transition, writes `order_status_history` with the admin's email, and pushes the update to the customer.
+- **Edit Order.** `/admin/orders/<id>/edit` saves through `admin_edit_order`: it checks the customer details, schedule (store hours), items (menu prices, sold out, options), the COD limit and what the order's status allows, recalculates subtotal and total (food subtotal + delivery fee), keeps the order id, number, tracking link, status and payment records, and records who changed what in `order_edits` (admin only, never on the tracking page). Cancelled orders can't be edited; once out for delivery or delivered, only the customer details and delivery fee can change.
 
 ## Tests
 

@@ -236,3 +236,18 @@ export interface CallLogRow {
   created_by_email: string | null
   created_at: string
 }
+
+/** One field changed by Admin → Edit Order. Item changes use field "item" with readable text. */
+export interface OrderEditChange {
+  field: string
+  from: string | null
+  to: string | null
+}
+
+export interface OrderEditRow {
+  id: string
+  order_id: string
+  changes: OrderEditChange[]
+  edited_by_email: string | null
+  created_at: string
+}

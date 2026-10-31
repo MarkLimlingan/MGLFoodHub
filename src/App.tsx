@@ -22,6 +22,7 @@ const AdminLayout = lazy(() => import('@/admin/AdminLayout'))
 const Dashboard = lazy(() => import('@/admin/Dashboard'))
 const Orders = lazy(() => import('@/admin/Orders'))
 const OrderDetail = lazy(() => import('@/admin/OrderDetail'))
+const OrderEdit = lazy(() => import('@/admin/OrderEdit'))
 const PrepList = lazy(() => import('@/admin/PrepList'))
 const Products = lazy(() => import('@/admin/Products'))
 const Settings = lazy(() => import('@/admin/Settings'))
@@ -59,6 +60,7 @@ export default function App() {
             <Route index element={<Dashboard />} />
             <Route path="orders" element={<Orders />} />
             <Route path="orders/:id" element={<OrderDetail />} />
+            <Route path="orders/:id/edit" element={<OrderEdit />} />
             <Route path="prep-list" element={<PrepList />} />
             <Route path="products" element={<Products />} />
             <Route path="settings" element={<Settings />} />

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { ChevronLeft, ChevronRight, Download, FilterX, Phone, Search } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Download, FilterX, Pencil, Phone, Search } from 'lucide-react'
 import { supabase, errorMessage } from '@/lib/supabase'
 import { useCatalog } from '@/hooks/useCatalog'
 import { downloadCsv } from '@/lib/csv'
@@ -205,6 +205,7 @@ export default function Orders() {
                   <th className="px-3 py-2.5">Stores</th>
                   <th className="px-3 py-2.5">Status</th>
                   <th className="px-3 py-2.5 text-right">Subtotal</th>
+                  <th className="px-3 py-2.5 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-sand">
@@ -231,6 +232,9 @@ export default function Orders() {
                       <OrderBadges order={o} />
                     </td>
                     <td className="px-3 py-2.5 text-right font-semibold tabular-nums">{peso(o.subtotal)}</td>
+                    <td className="px-3 py-2.5 text-right">
+                      <EditOrderButton order={o} />
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -255,9 +259,12 @@ export default function Orders() {
                   <p className="text-xs text-navy/60">{[...new Set(o.order_items.map((i) => i.store_name_snapshot))].join(', ')}</p>
                   <OrderBadges order={o} className="mt-2" />
                 </Link>
-                <a href={`tel:${o.phone}`} className="mt-auto inline-flex w-fit items-center gap-1.5 rounded-full bg-navy px-3 py-1.5 pt-1.5 text-xs font-semibold text-white">
-                  <Phone className="size-3.5" /> Call {formatPhone(o.phone)}
-                </a>
+                <div className="mt-auto flex flex-wrap items-center gap-2">
+                  <a href={`tel:${o.phone}`} className="inline-flex w-fit items-center gap-1.5 rounded-full bg-navy px-3 py-1.5 text-xs font-semibold text-white">
+                    <Phone className="size-3.5" /> Call {formatPhone(o.phone)}
+                  </a>
+                  <EditOrderButton order={o} />
+                </div>
               </li>
             ))}
           </ul>
@@ -278,5 +285,23 @@ export default function Orders() {
         </>
       )}
     </div>
+  )
+}
+
+/** Opens Admin → Edit Order for this order. Cancelled orders can't be edited. */
+function EditOrderButton({ order }: { order: Pick<OrderRow, 'id' | 'order_number' | 'order_status'> }) {
+  if (order.order_status === 'cancelled') {
+    return (
+      <Button variant="outline" size="sm" disabled title="Cancelled orders can't be edited" aria-label={`Edit ${order.order_number} (cancelled orders can't be edited)`}>
+        <Pencil /> Edit
+      </Button>
+    )
+  }
+  return (
+    <Button variant="outline" size="sm" asChild>
+      <Link to={`/admin/orders/${order.id}/edit`} aria-label={`Edit ${order.order_number}`}>
+        <Pencil /> Edit
+      </Link>
+    </Button>
   )
 }

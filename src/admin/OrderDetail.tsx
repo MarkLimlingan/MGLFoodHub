@@ -2,10 +2,10 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
-  ArrowLeft, Ban, CheckCircle2, ChefHat, Copy, ExternalLink, Link2, Mail, MapPin, PackageCheck, Phone, PhoneCall, Save, ShieldCheck, Truck, XCircle,
+  ArrowLeft, Ban, CheckCircle2, ChefHat, Copy, ExternalLink, Link2, Mail, MapPin, PackageCheck, Pencil, Phone, PhoneCall, Save, ShieldCheck, Truck, XCircle,
 } from 'lucide-react'
 import { supabase, errorMessage } from '@/lib/supabase'
-import type { CallLogRow, HistoryRow, OrderItemRow, OrderRow } from '@/lib/types'
+import type { CallLogRow, HistoryRow, OrderEditRow, OrderItemRow, OrderRow } from '@/lib/types'
 import { historyLabel, PAYMENT_METHOD_LABEL } from '@/lib/orderStatus'
 import { cn, copyText, formatDate, formatDateTime, formatPhone, peso, slotLabel, socialUrl, trackingUrl } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -18,6 +18,7 @@ import { GoogleLogo } from '@/components/GoogleLink'
 import { PaymentLogo } from '@/components/PaymentLogo'
 import { AdminPageHeader, OrderBadges, Panel } from './ui'
 import { useAdminLive } from './AdminLayout'
+import { EditHistoryPanel } from './editHistory'
 
 type Action = 'confirm' | 'mark_paid' | 'reject_payment' | 'preparing' | 'out_for_delivery' | 'delivered' | 'cancel' | 'decline_cancel_request'
 
@@ -41,6 +42,7 @@ export default function OrderDetail() {
   const [items, setItems] = useState<OrderItemRow[]>([])
   const [history, setHistory] = useState<HistoryRow[]>([])
   const [calls, setCalls] = useState<CallLogRow[]>([])
+  const [edits, setEdits] = useState<OrderEditRow[]>([])
   const [error, setError] = useState<string | null>(null)
   const [missing, setMissing] = useState(false)
   const [proofUrl, setProofUrl] = useState<string | null>(null)
@@ -57,11 +59,12 @@ export default function OrderDetail() {
   const feeTouched = useRef(false)
 
   const load = useCallback(async () => {
-    const [o, it, h, c] = await Promise.all([
+    const [o, it, h, c, ed] = await Promise.all([
       supabase.from('orders').select('*').eq('id', id).maybeSingle(),
       supabase.from('order_items').select('*').eq('order_id', id).order('line_no'),
       supabase.from('order_status_history').select('*').eq('order_id', id).order('created_at', { ascending: false }),
       supabase.from('call_logs').select('*').eq('order_id', id).order('created_at', { ascending: false }),
+      supabase.from('order_edits').select('*').eq('order_id', id).order('created_at', { ascending: false }),
     ])
     if (o.error) return setError(errorMessage(o.error))
     if (!o.data) return setMissing(true)
@@ -70,6 +73,7 @@ export default function OrderDetail() {
     setItems((it.data ?? []) as OrderItemRow[])
     setHistory((h.data ?? []) as HistoryRow[])
     setCalls((c.data ?? []) as CallLogRow[])
+    setEdits((ed.data ?? []) as OrderEditRow[]) // empty until the Edit Order database update is run
     if (!notesDirtyRef.current) setNotes(row.admin_notes ?? '')
     if (!feeTouched.current) setFee(Number(row.delivery_fee) > 0 ? String(Number(row.delivery_fee)) : '')
     setError(null)
@@ -156,9 +160,22 @@ export default function OrderDetail() {
         title={o.order_number}
         description={`Placed ${formatDateTime(o.created_at)} · ${PAYMENT_METHOD_LABEL[o.payment_method]}`}
         actions={
-          <Button variant="outline" size="sm" onClick={async () => (await copyText(trackingUrl(o.tracking_token))) && toast.success('Customer tracking link copied')}>
-            <Link2 /> Copy tracking link
-          </Button>
+          <>
+            {o.order_status === 'cancelled' ? (
+              <Button size="sm" disabled title="Cancelled orders can't be edited">
+                <Pencil /> Edit Order
+              </Button>
+            ) : (
+              <Button size="sm" asChild>
+                <Link to={`/admin/orders/${o.id}/edit`}>
+                  <Pencil /> Edit Order
+                </Link>
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={async () => (await copyText(trackingUrl(o.tracking_token))) && toast.success('Customer tracking link copied')}>
+              <Link2 /> Copy tracking link
+            </Button>
+          </>
         }
       />
       <OrderBadges order={o} className="-mt-3" />
@@ -489,6 +506,8 @@ export default function OrderDetail() {
               ))}
             </ul>
           </Panel>
+
+          <EditHistoryPanel edits={edits} />
         </div>
       </div>
 
