@@ -85,7 +85,7 @@ export default function StorePage() {
 
   if (!store) {
     return (
-      <EmptyState as="h1" icon={<StoreIcon />} title="Store not found" action={<Button asChild><Link to="/">See all stores</Link></Button>}>
+      <EmptyState as="h1" icon={<StoreIcon />} title="Store not found" action={<Button asChild><Link to="/merchants">See all merchants</Link></Button>}>
         This store may have moved. Balik tayo sa listahan?
       </EmptyState>
     )
@@ -97,8 +97,8 @@ export default function StorePage() {
     <div>
       {/* Header — light rounded hero card, like the reference */}
       <div className="mx-auto max-w-[110rem] px-3 pt-4 sm:px-4 lg:px-6 sm:pt-6">
-        <Link to="/" className="inline-flex items-center gap-1.5 text-sm font-medium text-navy/70 hover:text-brand-ink">
-          <ArrowLeft className="size-4" /> All stores
+        <Link to="/merchants" className="inline-flex items-center gap-1.5 text-sm font-medium text-navy/70 hover:text-brand-ink">
+          <ArrowLeft className="size-4" /> All merchants
         </Link>
         <section className="neu-raised relative mt-3 overflow-hidden rounded-[2rem]">
           <div className="pointer-events-none absolute -right-20 top-0 hidden h-full w-[40%] rounded-l-[45%] bg-[#f6dcae] sm:block" />

@@ -1,13 +1,15 @@
 import { Suspense, useEffect, useLayoutEffect, type ReactNode } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
-import { ArrowRight, Banknote, ClipboardList, Home, Info, ShoppingBag, Store as StoreIcon, type LucideIcon } from 'lucide-react'
+import { ArrowRight, Banknote, ClipboardList, Home, Info, Phone, ShoppingBag, Store as StoreIcon, type LucideIcon } from 'lucide-react'
 import { useCartView, useCatalog } from '@/hooks/useCatalog'
-import { cn, peso } from '@/lib/utils'
+import { cn, formatPhone, peso } from '@/lib/utils'
+import { telHref, useOwnerPhone } from '@/lib/contact'
 import { ONLINE_METHODS, PAYMENT_LOGO, PAYMENT_METHOD_LABEL } from '@/lib/orderStatus'
 import { Logo } from './Logo'
 import { CartSheet, useCartUI } from './Cart'
 import { OrderingGuidelines, useGuidelines } from './OrderingGuidelines'
-import { DELIVERY_DISCLAIMER, ScheduledNotice } from './common'
+import { DELIVERY_DISCLAIMER, OWNER_MESSAGE_URL, ScheduledNotice } from './common'
+import { MessengerLogo } from './FishRequest'
 import { InstallDialog, InstallLink, InstallNavButton } from './InstallApp'
 import { Skeleton } from './ui/controls'
 
@@ -49,7 +51,6 @@ const navLink = ({ isActive }: { isActive: boolean }) =>
 
 function Navbar() {
   const { pathname } = useLocation()
-  const openGuidelines = useGuidelines((s) => s.setOpen)
   return (
     <header className="sticky top-0 z-40 border-b border-sand-200/70 bg-white/95 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-[110rem] items-center justify-center gap-3 px-3 sm:px-4 lg:px-6 md:h-[68px] md:justify-between">
@@ -58,26 +59,28 @@ function Navbar() {
         </Link>
 
         {/* Desktop / tablet: text links (on phones these live in the bottom bar) */}
-        <nav className="hidden items-center gap-6 md:flex lg:gap-8" aria-label="Main">
+        <nav className="hidden items-center gap-5 md:flex lg:gap-8" aria-label="Main">
           <NavLink to="/" end className={() => navLink({ isActive: pathname === '/' })}>
             Home
           </NavLink>
-          <Link to="/#stores" className={navLink({ isActive: pathname.startsWith('/store/') })}>
-            Stores
-          </Link>
-          <NavLink to="/my-orders" className={navLink}>
-            My Orders
+          <NavLink to="/merchants" className={() => navLink({ isActive: pathname === '/merchants' || pathname.startsWith('/store/') })}>
+            Explore Merchants
           </NavLink>
-          <NavLink to="/find-order" className={navLink}>
-            Find my order
+          <NavLink to="/categories" className={navLink}>
+            Categories
           </NavLink>
-          <button type="button" onClick={() => openGuidelines(true)} className={navLink({ isActive: false })} aria-label="Ordering guidelines">
-            Guidelines
-          </button>
+          <NavLink to="/my-orders" className={() => navLink({ isActive: /^\/(my-orders|track|find-order|order-placed)/.test(pathname) })}>
+            Track Order
+          </NavLink>
+          <NavLink to="/about" className={navLink}>
+            About Us
+          </NavLink>
         </nav>
 
         <div className="hidden items-center gap-2 md:flex">
-          <InstallNavButton />
+          <span className="hidden xl:contents">
+            <InstallNavButton />
+          </span>
           <CartButton />
         </div>
       </div>
@@ -87,15 +90,15 @@ function Navbar() {
 
 /** Phones: four labeled tabs. The cart lives in the "View cart" bar above (it shows once something is in it). */
 function MobileNav() {
-  const { pathname, hash } = useLocation()
+  const { pathname } = useLocation()
   const cartOpen = useCartUI((s) => s.open)
   const openGuidelines = useGuidelines((s) => s.setOpen)
   const guidelinesOpen = useGuidelines((s) => s.open)
   const overlay = cartOpen || guidelinesOpen
 
   const tabs: { to?: string; label: string; icon: LucideIcon; active: boolean; onClick?: () => void }[] = [
-    { to: '/', label: 'Home', icon: Home, active: !overlay && pathname === '/' && hash !== '#stores' },
-    { to: '/#stores', label: 'Stores', icon: StoreIcon, active: !overlay && (pathname.startsWith('/store/') || (pathname === '/' && hash === '#stores')) },
+    { to: '/', label: 'Home', icon: Home, active: !overlay && pathname === '/' },
+    { to: '/merchants', label: 'Merchants', icon: StoreIcon, active: !overlay && (/^\/(merchants|categories)/.test(pathname) || pathname.startsWith('/store/')) },
     { to: '/my-orders', label: 'Orders', icon: ClipboardList, active: !overlay && /^\/(my-orders|track|find-order|order-placed)/.test(pathname) },
     { label: 'Help', icon: Info, active: guidelinesOpen, onClick: () => openGuidelines(true) },
   ]
@@ -145,6 +148,7 @@ function MobileNav() {
 function Footer() {
   const { categories, stores } = useCatalog()
   const openGuidelines = useGuidelines((s) => s.setOpen)
+  const phone = useOwnerPhone()
   const heading = 'mb-3 flex items-center gap-2 font-heading text-sm font-semibold text-navy'
   const dot = <span className="size-1.5 rounded-full bg-brand" aria-hidden />
   // navy/75 keeps links readable on sand (5.8:1); hover adds an orange underline.
@@ -157,7 +161,17 @@ function Footer() {
           <div className="col-span-2 space-y-4 lg:col-span-1">
             <Logo className="h-16" />
             <p className="font-display text-2xl italic leading-none text-navy">Good food, on schedule.</p>
-            <p className="max-w-xs text-sm text-navy/75">{stores.length || 14} Malabon favorites in one cart, with scheduled delivery straight to your door.</p>
+            <p className="max-w-xs text-sm text-navy/75">{stores.length || 14} Malabon merchants in one cart, with scheduled delivery straight to your door.</p>
+            <div className="space-y-1">
+              <a href={OWNER_MESSAGE_URL} target="_blank" rel="noopener noreferrer" className={cn(item, 'flex items-center gap-2')}>
+                <MessengerLogo className="size-4 text-[#0866ff]" /> Message us on Facebook
+              </a>
+              {phone && (
+                <a href={telHref(phone)} className={cn(item, 'flex items-center gap-2 tabular-nums')}>
+                  <Phone className="size-4 text-brand-ink" aria-hidden /> {formatPhone(phone)}
+                </a>
+              )}
+            </div>
             <div>
               <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-navy/70">We accept</p>
               <div className="flex flex-wrap gap-2 text-xs">
@@ -173,14 +187,16 @@ function Footer() {
             </div>
           </div>
           <div>
-            <p className={heading}>{dot}Quick Links</p>
+            <p className={heading}>{dot}Marketplace</p>
             <Link to="/" className={item}>Home</Link>
-            <Link to="/#stores" className={item}>All stores</Link>
-            <Link to="/cart" className={item}>Cart</Link>
-            <Link to="/checkout" className={item}>Checkout</Link>
+            <Link to="/merchants" className={item}>Explore merchants</Link>
+            <Link to="/categories" className={item}>Food categories</Link>
+            <Link to="/about" className={item}>About us</Link>
+            <Link to="/contact" className={item}>Contact us</Link>
           </div>
           <div>
             <p className={heading}>{dot}Your Orders</p>
+            <Link to="/cart" className={item}>Cart</Link>
             <Link to="/my-orders" className={item}>My orders on this device</Link>
             <Link to="/find-order" className={item}>Find my order</Link>
             <button type="button" onClick={() => openGuidelines(true)} className={cn(item, 'text-left')}>
@@ -192,7 +208,7 @@ function Footer() {
             <p className={heading}>{dot}Categories</p>
             <div className="grid grid-cols-2 gap-x-4 sm:grid-cols-1">
               {categories.map((c) => (
-                <Link key={c.id} to={`/?cat=${c.slug}#stores`} className={item}>
+                <Link key={c.id} to={`/merchants?cat=${c.slug}`} className={item}>
                   {c.name}
                 </Link>
               ))}

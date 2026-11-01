@@ -7,6 +7,10 @@ import NotFound from '@/pages/NotFound'
 import { ADMIN_LOGIN_PATH, AdminRoot, FullScreenSpinner, RequireAdmin } from '@/admin/AdminAuth'
 
 // Checkout/tracking pull in the date picker and QR code — load them on demand.
+const Merchants = lazy(() => import('@/pages/Merchants'))
+const Categories = lazy(() => import('@/pages/Categories'))
+const About = lazy(() => import('@/pages/About'))
+const Contact = lazy(() => import('@/pages/Contact'))
 const CartPage = lazy(() => import('@/pages/CartPage'))
 const Checkout = lazy(() => import('@/pages/Checkout'))
 const OrderPlaced = lazy(() => import('@/pages/OrderPlaced'))
@@ -34,6 +38,10 @@ export default function App() {
       <Routes>
         <Route element={<CustomerLayout />}>
           <Route index element={<Home />} />
+          <Route path="merchants" element={<Merchants />} />
+          <Route path="categories" element={<Categories />} />
+          <Route path="about" element={<About />} />
+          <Route path="contact" element={<Contact />} />
           <Route path="store/:slug" element={<StorePage />} />
           <Route path="cart" element={<CartPage />} />
           <Route path="checkout" element={<Checkout />} />

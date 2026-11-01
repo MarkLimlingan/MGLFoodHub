@@ -32,9 +32,22 @@ const SEEN_KEY = 'mgl_guidelines_seen_v1'
  * Pops up on a customer's first visit on this device. After that it opens only from
  * Help (phones) or Guidelines (header/footer), and checkout lists the same points.
  */
+/** The ordering guidelines from Admin → Settings (the defaults until they load). */
+export function useOrderingGuidelines(): string[] {
+  const [items, setItems] = useState<string[]>(DEFAULT_GUIDELINES)
+  useEffect(() => {
+    if (!supabaseConfigured) return
+    void supabase.rpc('get_checkout_info').then(({ data }) => {
+      const list = (data as { ordering_guidelines?: unknown } | null)?.ordering_guidelines
+      if (Array.isArray(list) && list.length && list.every((x) => typeof x === 'string')) setItems(list as string[])
+    })
+  }, [])
+  return items
+}
+
 export function OrderingGuidelines() {
   const { open, setOpen } = useGuidelines()
-  const [items, setItems] = useState<string[]>(DEFAULT_GUIDELINES)
+  const items = useOrderingGuidelines()
 
   useEffect(() => {
     // Coming back from signing in with Google is a page load too, but they've already seen it.
@@ -47,14 +60,6 @@ export function OrderingGuidelines() {
     }
     if (!returning && !storage.get(SEEN_KEY, false)) setOpen(true)
   }, [setOpen])
-
-  useEffect(() => {
-    if (!supabaseConfigured) return
-    void supabase.rpc('get_checkout_info').then(({ data }) => {
-      const list = (data as { ordering_guidelines?: unknown } | null)?.ordering_guidelines
-      if (Array.isArray(list) && list.length && list.every((x) => typeof x === 'string')) setItems(list as string[])
-    })
-  }, [])
 
   const { installed, install } = useInstallApp()
   const close = () => {

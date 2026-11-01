@@ -1,29 +1,13 @@
-import { useEffect, useId, useState, type ReactNode } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import { Fish, Info, Phone } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { telHref, useOwnerPhone } from '@/lib/contact'
 import { cn, formatPhone } from '@/lib/utils'
 import { OWNER_MESSAGE_URL } from './common'
 import { Button } from './ui/button'
 import { Skeleton } from './ui/controls'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from './ui/dialog'
 
-/** Owner's contact number from Admin → Settings ('' when not set). Loaded once per visit. */
-let ownerPhone: Promise<string> | null = null
-function loadOwnerPhone(): Promise<string> {
-  ownerPhone ??= Promise.resolve(supabase.rpc('get_owner_contact')).then(
-    ({ data, error }) => {
-      if (error) ownerPhone = null // try again next time
-      return error ? '' : String((data as { phone?: string } | null)?.phone ?? '').trim()
-    },
-    () => {
-      ownerPhone = null
-      return ''
-    },
-  )
-  return ownerPhone
-}
-
-function MessengerLogo({ className }: { className?: string }) {
+export function MessengerLogo({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className={className}>
       <path d="M.001 11.639C.001 4.949 5.241 0 12.001 0S24 4.95 24 11.639c0 6.689-5.24 11.638-12 11.638-1.21 0-2.38-.16-3.47-.46a.96.96 0 00-.64.05l-2.39 1.05a.96.96 0 01-1.35-.85l-.07-2.14a.97.97 0 00-.32-.68A11.39 11.389 0 01.002 11.64zm8.32-2.19l-3.52 5.6c-.35.53.32 1.139.82.75l3.79-2.87c.26-.2.6-.2.87 0l2.8 2.1c.84.63 2.04.4 2.6-.48l3.52-5.6c.35-.53-.32-1.13-.82-.75l-3.79 2.87c-.25.2-.6.2-.86 0l-2.8-2.1a1.8 1.8 0 00-2.61.48z" />
@@ -60,16 +44,7 @@ export function FishRequest({ className }: { className?: string }) {
 }
 
 function ContactOwnerDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-  const [phone, setPhone] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!open) return
-    let live = true
-    void loadOwnerPhone().then((p) => live && setPhone(p))
-    return () => {
-      live = false
-    }
-  }, [open])
+  const phone = useOwnerPhone(open)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -91,14 +66,14 @@ function ContactOwnerDialog({ open, onOpenChange }: { open: boolean; onOpenChang
                 text={
                   <>
                     Business contact number
-                    <a href={`tel:${phone.replace(/[^\d+]/g, '')}`} className="mt-0.5 block font-heading text-lg font-bold text-navy tabular-nums hover:text-brand-ink">
+                    <a href={telHref(phone)} className="mt-0.5 block font-heading text-lg font-bold text-navy tabular-nums hover:text-brand-ink">
                       {formatPhone(phone)}
                     </a>
                   </>
                 }
                 action={
                   <Button asChild className="w-full">
-                    <a href={`tel:${phone.replace(/[^\d+]/g, '')}`}>
+                    <a href={telHref(phone)}>
                       <Phone /> Call the Owner
                     </a>
                   </Button>

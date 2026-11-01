@@ -39,7 +39,7 @@ export function CartContents({ onNavigate, compact }: { onNavigate?: () => void;
           <Button
             onClick={() => {
               onNavigate?.()
-              navigate('/#stores')
+              navigate('/merchants')
             }}
           >
             Browse stores <ArrowRight />
