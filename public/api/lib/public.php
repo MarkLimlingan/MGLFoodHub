@@ -2,6 +2,32 @@
 // Customer functions. Same names, arguments and answers as the Supabase RPCs.
 declare(strict_types=1);
 
+/** Setup check: which step fails, in plain words, never a secret. ?fn=health */
+function health(array $args): array
+{
+    $result = ['config' => false, 'database' => false, 'tables' => 0, 'php_ok' => PHP_VERSION_ID >= 80100, 'problem' => null];
+    try {
+        config();
+        $result['config'] = true;
+    } catch (Throwable) {
+        $result['problem'] = 'mgl-config.php was not found in the folders above public_html.';
+        return $result;
+    }
+    try {
+        $result['tables'] = (int) val('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE()');
+        $result['database'] = true;
+    } catch (PDOException $e) {
+        $code = preg_match('/\[(\d{4})\]/', $e->getMessage(), $m) ? (int) $m[1] : (int) $e->getCode();
+        $result['problem'] = match ($code) {
+            1045 => 'The database refused the user or password in mgl-config.php.',
+            1044, 1049 => 'The database name in mgl-config.php is wrong, or the user has no access to it.',
+            2002, 2003, 2005 => 'Cannot reach the database server (check db.host in mgl-config.php).',
+            default => "Database error {$code}.",
+        };
+    }
+    return $result;
+}
+
 /** The whole menu in one call (the website used to read the seven tables). */
 function get_catalog(array $args): array
 {

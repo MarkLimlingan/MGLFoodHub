@@ -189,6 +189,8 @@ try {
   ok((await fetch(`${API}/rpc.php?fn=get_catalog`)).status === 405, 'GET is refused (POST only)')
   ok((await rpc('nope')).status === 404, 'unknown function is refused')
   ok((await rpc('admin_session')).data === null, 'no admin token: not signed in')
+  const health = (await rpc('health')).data
+  ok(health?.config === true && health.database === true && health.tables >= 17 && health.php_ok === true && health.problem === null, `health check (${health?.tables} tables)`)
   ok((await fetch(`${API}/rpc.php?fn=get_owner_contact`, { method: 'OPTIONS', headers: { Origin: 'http://localhost:5173' } })).headers.get('access-control-allow-origin') === 'http://localhost:5173', 'CORS allows the local dev site')
   ok((await fetch(`${API}/rpc.php?fn=get_owner_contact`, { method: 'OPTIONS', headers: { Origin: 'https://evil.example' } })).headers.get('access-control-allow-origin') === null, 'CORS refuses other sites')
 
