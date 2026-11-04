@@ -363,11 +363,8 @@ function WetFoodsSection() {
     <section id="wet-foods" aria-labelledby="wet-foods-title" className="mt-16 scroll-mt-24">
       <Reveal className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.25em] text-navy/70">
-            <Fish className="size-4 text-brand-ink" aria-hidden /> Fresh Option Malabon Fishport
-          </p>
-          <h2 id="wet-foods-title" className="mt-2 font-display text-3xl font-bold sm:text-4xl">
-            {category.name}
+          <h2 id="wet-foods-title" className="font-display text-3xl font-bold sm:text-4xl">
+            Fresh Option Malabon Fishport
           </h2>
           <p className="mt-1 text-sm text-navy/70">Fresh catch in the same cart, delivered on your schedule.</p>
         </div>
