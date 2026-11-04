@@ -24,10 +24,15 @@ function config(): array
         return $config;
     }
     $file = getenv('MGL_API_CONFIG') ?: null;
-    for ($dir = dirname(__DIR__, 2); !$file && $dir !== dirname($dir); $dir = dirname($dir)) {
-        // @: folders above the hosting account are outside open_basedir.
-        if (@is_file("{$dir}/mgl-config.php")) {
-            $file = "{$dir}/mgl-config.php";
+    // From the site's folder as the web server sees it (public_html), and from
+    // where this code really is (a deploy may keep it in a versions folder).
+    $starts = array_unique(array_filter([(string) ($_SERVER['DOCUMENT_ROOT'] ?? ''), dirname(__DIR__, 2)]));
+    foreach ($starts as $dir) {
+        for (; !$file && $dir !== dirname($dir); $dir = dirname($dir)) {
+            // @: folders above the hosting account are outside open_basedir.
+            if (@is_file("{$dir}/mgl-config.php")) {
+                $file = "{$dir}/mgl-config.php";
+            }
         }
     }
     if (!$file) {
