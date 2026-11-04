@@ -7,7 +7,7 @@ import { Button } from './ui/button'
 import type { Tone } from '@/lib/orderStatus'
 
 /** The owner's Facebook page, where customers send questions about their order. */
-export const OWNER_MESSAGE_URL = 'https://www.facebook.com/share/1Z173bDyLJ/'
+export const OWNER_MESSAGE_URL = 'https://www.facebook.com/profile.php?id=61595178520402'
 
 export function MessageOwner({ className }: { className?: string }) {
   return (
