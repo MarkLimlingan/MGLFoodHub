@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { ArrowDown, ArrowUp, ImagePlus, Lock, Search, Trash2 } from 'lucide-react'
 import { useCatalog } from '@/hooks/useCatalog'
-import { supabase, errorMessage } from '@/lib/supabase'
-import { extOf, prepareImage } from '@/lib/image'
+import { errorMessage, rpc, uploadImage } from '@/lib/api'
+import { prepareImage } from '@/lib/image'
 import type { Badge, Product, Store } from '@/lib/types'
 import { cn, formatHours, peso } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -14,10 +14,7 @@ import { AdminPageHeader, Panel } from './ui'
 
 async function upload(bucket: 'product-images' | 'store-assets', folder: string, file: File): Promise<string> {
   const img = await prepareImage(file, 1600)
-  const path = `${folder}/${Date.now()}.${extOf(img)}`
-  const { error } = await supabase.storage.from(bucket).upload(path, img, { contentType: img.type, upsert: false })
-  if (error) throw error
-  return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl
+  return uploadImage(bucket, folder, img)
 }
 
 export default function Products() {
@@ -94,7 +91,7 @@ function StoreToggle({ store }: { store: Store }) {
       aria-label={`${store.name} accepting orders`}
       onCheckedChange={async (v) => {
         cat.patch('stores', store.id, { is_accepting_orders: v })
-        const { error } = await supabase.from('stores').update({ is_accepting_orders: v }).eq('id', store.id)
+        const { error } = await rpc('admin_update_store', { id: store.id, values: { is_accepting_orders: v } })
         if (error) {
           cat.patch('stores', store.id, { is_accepting_orders: !v })
           toast.error(errorMessage(error))
@@ -111,7 +108,7 @@ function StoreAssets({ store }: { store: Store }) {
     setBusy(field)
     try {
       const url = await upload('store-assets', store.slug, file)
-      const { error } = await supabase.from('stores').update({ [field]: url }).eq('id', store.id)
+      const { error } = await rpc('admin_update_store', { id: store.id, values: { [field]: url } })
       if (error) throw error
       cat.patch('stores', store.id, { [field]: url })
       toast.success('Image updated')
@@ -151,7 +148,7 @@ function ProductRow({ product: p, prev, next, reorderable }: { product: Product;
 
   const updateProduct = async (values: Partial<Pick<Product, 'is_sold_out' | 'badge' | 'image_url' | 'sort'>>, id = p.id, undo?: Partial<Product>) => {
     cat.patch('products', id, values)
-    const { error } = await supabase.from('products').update(values).eq('id', id)
+    const { error } = await rpc('admin_update_product', { id, values })
     if (error) {
       if (undo) cat.patch('products', id, undo)
       toast.error(errorMessage(error))
@@ -217,7 +214,7 @@ function ProductRow({ product: p, prev, next, reorderable }: { product: Product;
                   title={v.is_sold_out ? 'Sold out. Tap to make available.' : 'Available. Tap to mark sold out.'}
                   onCheckedChange={async (avail) => {
                     cat.patch('variants', v.id, { is_sold_out: !avail })
-                    const { error } = await supabase.from('product_variants').update({ is_sold_out: !avail }).eq('id', v.id)
+                    const { error } = await rpc('admin_update_variant', { id: v.id, values: { is_sold_out: !avail } })
                     if (error) {
                       cat.patch('variants', v.id, { is_sold_out: avail })
                       toast.error(errorMessage(error))

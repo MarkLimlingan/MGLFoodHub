@@ -1,0 +1,2 @@
+# Only loaded by rpc.php and proof.php, never opened directly.
+Require all denied

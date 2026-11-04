@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Download } from 'lucide-react'
-import { supabase, errorMessage } from '@/lib/supabase'
+import { rpc, errorMessage } from '@/lib/api'
 import { downloadCsv } from '@/lib/csv'
 import { PAYMENT_METHOD_LABEL } from '@/lib/orderStatus'
 import type { OrderStatus, PaymentMethod } from '@/lib/types'
@@ -32,17 +32,11 @@ export default function Reports() {
 
   useEffect(() => {
     setRows(null)
-    let q = supabase
-      .from('orders')
-      .select('delivery_date, order_status, payment_method, subtotal, delivery_fee, order_items(store_name_snapshot, quantity, line_total)')
-      .gte('delivery_date', from)
-      .lte('delivery_date', to)
-      .limit(10000)
-    q = scope === 'delivered' ? q.eq('order_status', 'delivered') : q.neq('order_status', 'cancelled')
-    void q.then(({ data, error }) => {
+    // scope 'delivered': delivered orders only; 'active': everything except cancelled.
+    void rpc<ReportOrder[]>('admin_report', { from, to, scope }).then(({ data, error }) => {
       if (error) setError(errorMessage(error))
       else {
-        setRows((data ?? []) as unknown as ReportOrder[])
+        setRows(data)
         setError(null)
       }
     })

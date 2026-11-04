@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Download, Printer, ScrollText } from 'lucide-react'
-import { supabase, errorMessage } from '@/lib/supabase'
+import { rpc, errorMessage } from '@/lib/api'
 import { downloadCsv } from '@/lib/csv'
 import type { OrderOption } from '@/lib/types'
 import { addDays, formatDate, manilaNow, slotLabel } from '@/lib/utils'
@@ -42,21 +42,14 @@ export default function PrepList() {
 
   useEffect(() => {
     setRows(null)
-    void supabase
-      .from('order_items')
-      .select(
-        'store_name_snapshot, section_name_snapshot, product_name_snapshot, variant_label_snapshot, options_snapshot, quantity, orders!inner(order_number, delivery_slot, order_status, delivery_date)',
-      )
-      .eq('orders.delivery_date', date)
-      .neq('orders.order_status', 'cancelled')
-      .limit(10000)
-      .then(({ data, error }) => {
-        if (error) setError(errorMessage(error))
-        else {
-          setRows((data ?? []) as unknown as ItemRow[])
-          setError(null)
-        }
-      })
+    // Items of every order for this delivery date, except cancelled ones.
+    void rpc<ItemRow[]>('admin_prep_list', { date }).then(({ data, error }) => {
+      if (error) setError(errorMessage(error))
+      else {
+        setRows(data)
+        setError(null)
+      }
+    })
   }, [date, version])
 
   const stores = useMemo(() => {

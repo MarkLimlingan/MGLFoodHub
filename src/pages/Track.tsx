@@ -4,13 +4,14 @@ import { toast } from 'sonner'
 import { AlertTriangle, BadgeCheck, Bike, Check, ChefHat, Clock, ImagePlus, Link2, PackageCheck, PackageSearch, Phone, Radio, XCircle, type LucideIcon } from 'lucide-react'
 import { useTrackedOrder } from '@/hooks/useTrackedOrder'
 import { useCart } from '@/store/cart'
-import { supabase, errorMessage } from '@/lib/supabase'
+import { rpc, errorMessage } from '@/lib/api'
 import { saveMyOrder } from '@/lib/myOrders'
-import { extOf, prepareImage } from '@/lib/image'
+import { prepareImage } from '@/lib/image'
+import { uploadProof } from '@/lib/api'
 import { customerStatus, historyLabel, isOnline, PAYMENT_METHOD_LABEL, progressSteps, type Tone } from '@/lib/orderStatus'
 import { PaymentLogo } from '@/components/PaymentLogo'
 import type { PublicOrder } from '@/lib/types'
-import { cn, formatDate, formatDateTime, peso, randomId, slotLabel, trackingUrl } from '@/lib/utils'
+import { cn, formatDate, formatDateTime, peso, slotLabel, trackingUrl } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input, Textarea } from '@/components/ui/input'
 import { Field } from '@/components/ui/label'
@@ -277,7 +278,7 @@ function CancelRequest({ token, onDone }: { token: string; onDone: () => Promise
       return
     }
     setBusy(true)
-    const { error } = await supabase.rpc('request_cancellation', { p_token: token, p_reason: reason.trim() })
+    const { error } = await rpc('request_cancellation', { p_token: token, p_reason: reason.trim() })
     setBusy(false)
     if (error) {
       toast.error(errorMessage(error))
@@ -325,11 +326,8 @@ function ResubmitProof({ token, label, first, onDone }: { token: string; label: 
     if (!file) return toast.error(`Please upload a screenshot of your ${label} payment.`)
     setBusy(true)
     try {
-      const img = await prepareImage(file)
-      const path = `proofs/${deviceId.replace(/[^A-Za-z0-9_-]/g, '')}/${Date.now()}-${randomId().slice(0, 8)}.${extOf(img)}`
-      const up = await supabase.storage.from('payment-proofs').upload(path, img, { contentType: img.type, upsert: false })
-      if (up.error) throw new Error('Could not upload your screenshot. Please try again.')
-      const { error } = await supabase.rpc('resubmit_gcash_proof', { p_token: token, p_ref: ref.trim(), p_path: path })
+      const path = await uploadProof(await prepareImage(file), deviceId)
+      const { error } = await rpc('resubmit_gcash_proof', { p_token: token, p_ref: ref.trim(), p_path: path })
       if (error) throw error
       toast.success(first ? 'Payment proof sent! We will verify it shortly.' : 'New payment proof sent! We will verify it shortly.')
       await onDone()

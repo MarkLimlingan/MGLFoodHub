@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import {
   ArrowLeft, Ban, CheckCircle2, ChefHat, Copy, ExternalLink, Link2, Mail, MapPin, PackageCheck, Pencil, Phone, PhoneCall, Save, ShieldCheck, Truck, XCircle,
 } from 'lucide-react'
-import { supabase, errorMessage } from '@/lib/supabase'
+import { errorMessage, proofImageUrl, rpc } from '@/lib/api'
 import type { CallLogRow, HistoryRow, OrderEditRow, OrderItemRow, OrderRow } from '@/lib/types'
 import { historyLabel, PAYMENT_METHOD_LABEL } from '@/lib/orderStatus'
 import { cn, copyText, formatDate, formatDateTime, formatPhone, peso, slotLabel, socialUrl, trackingUrl } from '@/lib/utils'
@@ -35,6 +35,22 @@ const ACTIONS: Record<Action, { title: string; confirm: string; reason?: string;
 
 const CALL_RESULT: Record<CallLogRow['result'], string> = { answered: 'Answered', no_answer: 'No answer', wrong_number: 'Wrong number' }
 
+/** Orders placed with the same Google account. */
+interface AccountStats {
+  total: number
+  cancelled: number
+}
+
+/** admin_order_detail: the order with everything shown on this page (lists newest first). */
+interface OrderDetailData {
+  order: OrderRow
+  items: OrderItemRow[]
+  history: HistoryRow[]
+  calls: CallLogRow[]
+  edits: OrderEditRow[]
+  account: AccountStats | null
+}
+
 export default function OrderDetail() {
   const { id = '' } = useParams()
   const { version } = useAdminLive()
@@ -43,6 +59,7 @@ export default function OrderDetail() {
   const [history, setHistory] = useState<HistoryRow[]>([])
   const [calls, setCalls] = useState<CallLogRow[]>([])
   const [edits, setEdits] = useState<OrderEditRow[]>([])
+  const [account, setAccount] = useState<AccountStats | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [missing, setMissing] = useState(false)
   const [proofUrl, setProofUrl] = useState<string | null>(null)
@@ -59,21 +76,16 @@ export default function OrderDetail() {
   const feeTouched = useRef(false)
 
   const load = useCallback(async () => {
-    const [o, it, h, c, ed] = await Promise.all([
-      supabase.from('orders').select('*').eq('id', id).maybeSingle(),
-      supabase.from('order_items').select('*').eq('order_id', id).order('line_no'),
-      supabase.from('order_status_history').select('*').eq('order_id', id).order('created_at', { ascending: false }),
-      supabase.from('call_logs').select('*').eq('order_id', id).order('created_at', { ascending: false }),
-      supabase.from('order_edits').select('*').eq('order_id', id).order('created_at', { ascending: false }),
-    ])
-    if (o.error) return setError(errorMessage(o.error))
-    if (!o.data) return setMissing(true)
-    const row = o.data as OrderRow
+    const { data, error } = await rpc<OrderDetailData | null>('admin_order_detail', { id })
+    if (error) return setError(errorMessage(error))
+    if (!data) return setMissing(true)
+    const row = data.order
     setOrder(row)
-    setItems((it.data ?? []) as OrderItemRow[])
-    setHistory((h.data ?? []) as HistoryRow[])
-    setCalls((c.data ?? []) as CallLogRow[])
-    setEdits((ed.data ?? []) as OrderEditRow[]) // empty until the Edit Order database update is run
+    setItems(data.items)
+    setHistory(data.history)
+    setCalls(data.calls)
+    setEdits(data.edits)
+    setAccount(data.account)
     if (!notesDirtyRef.current) setNotes(row.admin_notes ?? '')
     if (!feeTouched.current) setFee(Number(row.delivery_fee) > 0 ? String(Number(row.delivery_fee)) : '')
     setError(null)
@@ -85,15 +97,22 @@ export default function OrderDetail() {
 
   useEffect(() => {
     if (!order?.gcash_proof_path) return setProofUrl(null)
-    void supabase.storage
-      .from('payment-proofs')
-      .createSignedUrl(order.gcash_proof_path, 60 * 60)
-      .then(({ data }) => setProofUrl(data?.signedUrl ?? null))
+    let alive = true
+    let url: string | null = null
+    void proofImageUrl(order.gcash_proof_path).then((u) => {
+      url = u
+      if (alive) setProofUrl(u)
+      else if (u?.startsWith('blob:')) URL.revokeObjectURL(u)
+    })
+    return () => {
+      alive = false
+      if (url?.startsWith('blob:')) URL.revokeObjectURL(url)
+    }
   }, [order?.gcash_proof_path])
 
   async function run(action: Action | 'set_delivery_fee', note?: string, amount?: number) {
     setBusy(true)
-    const { error } = await supabase.rpc('admin_order_action', {
+    const { error } = await rpc('admin_order_action', {
       p_order_id: id,
       p_action: action,
       p_note: note?.trim() || null,
@@ -104,7 +123,7 @@ export default function OrderDetail() {
       toast.error(errorMessage(error))
       return false
     }
-    toast.success('Order updated. The customer sees it instantly.')
+    toast.success('Order updated. The customer sees it on their tracking page.')
     await load()
     return true
   }
@@ -316,7 +335,7 @@ export default function OrderDetail() {
                     </p>
                   )
                 )}
-                <GoogleAccount order={o} />
+                <GoogleAccount order={o} stats={account} />
               </div>
               <div className="space-y-1 text-sm">
                 <p className="flex items-start gap-1.5">
@@ -482,7 +501,7 @@ export default function OrderDetail() {
               className="mt-2"
               disabled={!notesDirty}
               onClick={async () => {
-                const { error } = await supabase.from('orders').update({ admin_notes: notes.trim() || null }).eq('id', o.id)
+                const { error } = await rpc('admin_save_notes', { id: o.id, admin_notes: notes.trim() })
                 if (error) return toast.error(errorMessage(error))
                 setNotesDirty(false)
                 toast.success('Notes saved')
@@ -579,7 +598,7 @@ function CallLogDialog({ open, onOpenChange, orderId, onSaved }: { open: boolean
             loading={busy}
             onClick={async () => {
               setBusy(true)
-              const { error } = await supabase.from('call_logs').insert({ order_id: orderId, result, note: note.trim() || null })
+              const { error } = await rpc('admin_add_call_log', { order_id: orderId, result, note: note.trim() })
               setBusy(false)
               if (error) return toast.error(errorMessage(error))
               toast.success('Call logged')
@@ -597,23 +616,8 @@ function CallLogDialog({ open, onOpenChange, orderId, onSaved }: { open: boolean
 }
 
 /** The Google account that placed the order, and its order history, to help spot bogus buyers. */
-function GoogleAccount({ order }: { order: OrderRow }) {
-  const [stats, setStats] = useState<{ total: number; cancelled: number } | null>(null)
-  const userId = order.customer_user_id
-
-  useEffect(() => {
-    if (!userId) return
-    const count = (cancelledOnly: boolean) => {
-      let q = supabase.from('orders').select('id', { count: 'exact', head: true }).eq('customer_user_id', userId)
-      if (cancelledOnly) q = q.eq('order_status', 'cancelled')
-      return q
-    }
-    void Promise.all([count(false), count(true)]).then(([all, cancelled]) =>
-      setStats({ total: all.count ?? 0, cancelled: cancelled.count ?? 0 }),
-    )
-  }, [userId, order.order_status])
-
-  if (!userId) return null
+function GoogleAccount({ order, stats }: { order: OrderRow; stats: AccountStats | null }) {
+  if (!order.customer_user_id) return null
   const facebook = order.verified_with === 'facebook'
   return (
     <div className="mt-2 flex items-center gap-2.5 rounded-xl bg-[#4285F4]/[0.06] px-3 py-2">
@@ -656,7 +660,7 @@ function BalanceDue({ order, onSettled }: { order: OrderRow; onSettled: () => Pr
         loading={busy}
         onClick={async () => {
           setBusy(true)
-          const { error } = await supabase.rpc('admin_settle_balance', { p_order_id: order.id })
+          const { error } = await rpc('admin_settle_balance', { p_order_id: order.id })
           setBusy(false)
           if (error) return toast.error(errorMessage(error))
           toast.success(diff > 0 ? 'Balance marked as collected' : 'Refund marked as sent')

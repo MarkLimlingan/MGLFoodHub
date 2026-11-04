@@ -48,7 +48,7 @@ export default function Privacy() {
 
         <LegalSection title="Where it is kept">
           <p>
-            Your information is stored in our database hosted by Supabase. Payment screenshots are private and only our team can view them. We keep
+            Your information is stored in our database hosted by Hostinger. Payment screenshots are private and only our team can view them. We keep
             your information for as long as we need it to handle your orders and keep our business records.
           </p>
         </LegalSection>

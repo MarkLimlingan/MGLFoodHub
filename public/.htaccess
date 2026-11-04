@@ -1,0 +1,41 @@
+# MGL Food Hub on Hostinger (part of the build, so every deploy from GitHub includes it).
+Options -Indexes
+DirectoryIndex index.html
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # www.mglfoodhub.com → mglfoodhub.com
+  RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+  RewriteRule ^ https://%1%{REQUEST_URI} [R=301,L]
+
+  # Photos uploaded through the admin live outside public_html (deploys would erase them);
+  # api/file.php serves any /uploads/… that is not a file in the build.
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteRule ^uploads/(.+)$ api/file.php?path=$1 [L,QSA]
+
+  # Same as vercel.json: links without a file extension load the app.
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteCond %{REQUEST_URI} !\.[A-Za-z0-9]+$
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+<IfModule mod_headers.c>
+  # Same as vercel.json.
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "DENY"
+  Header always set Content-Security-Policy "frame-ancestors 'none'"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+
+  # Pages and the service worker are always checked for updates;
+  # built files have a hash in their name, so they can be kept for a year.
+  <FilesMatch "(\.html|\.webmanifest|^sw\.js)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+  <FilesMatch "-[A-Za-z0-9_-]{8}\.(js|css)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+</IfModule>

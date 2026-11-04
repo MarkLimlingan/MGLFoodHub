@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { supabase, supabaseConfigured } from '@/lib/supabase'
+import { rpcOrThrow } from '@/lib/api'
 import type { HubCategory, MenuSection, OptionChoice, OptionGroup, Product, Store, Variant } from '@/lib/types'
 import { useCart, type CartLine } from '@/store/cart'
 import { toCents } from '@/lib/utils'
@@ -36,15 +36,17 @@ export interface Catalog extends CatalogData {
 const empty: CatalogData = { categories: [], stores: [], sections: [], products: [], variants: [], groups: [], choices: [] }
 const CatalogContext = createContext<Catalog | null>(null)
 
-/** PostgREST caps responses at 1000 rows; page through to be safe. */
-async function fetchAll<T>(table: string, order: string): Promise<T[]> {
-  const out: T[] = []
-  for (let from = 0; ; from += 1000) {
-    const { data, error } = await supabase.from(table).select('*').order(order).range(from, from + 999)
-    if (error) throw error
-    out.push(...((data ?? []) as T[]))
-    if (!data || data.length < 1000) return out
-  }
+/** How often an open page re-reads the menu (sold out, availability, photos). */
+const REFRESH_MS = 120_000
+
+interface CatalogResponse {
+  hub_categories: HubCategory[]
+  stores: Store[]
+  menu_sections: MenuSection[]
+  products: Product[]
+  product_variants: Variant[]
+  option_groups: OptionGroup[]
+  option_choices: OptionChoice[]
 }
 
 const num = <T extends object>(rows: T[], keys: (keyof T)[]) =>
@@ -73,29 +75,16 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null)
 
   const reload = useCallback(async () => {
-    if (!supabaseConfigured) {
-      setError('The store is not connected yet. Please set up Supabase (see README).')
-      setLoading(false)
-      return
-    }
     try {
-      const [categories, stores, sections, products, variants, groups, choices] = await Promise.all([
-        fetchAll<HubCategory>('hub_categories', 'sort'),
-        fetchAll<Store>('stores', 'sort'),
-        fetchAll<MenuSection>('menu_sections', 'sort'),
-        fetchAll<Product>('products', 'sort'),
-        fetchAll<Variant>('product_variants', 'sort'),
-        fetchAll<OptionGroup>('option_groups', 'id'),
-        fetchAll<OptionChoice>('option_choices', 'sort'),
-      ])
+      const c = await rpcOrThrow<CatalogResponse>('get_catalog')
       setData({
-        categories,
-        stores,
-        sections,
-        products,
-        variants: num(variants, ['price', 'addon_price']),
-        groups,
-        choices: num(choices, ['price_delta']),
+        categories: c.hub_categories,
+        stores: c.stores,
+        sections: c.menu_sections,
+        products: c.products,
+        variants: num(c.product_variants, ['price', 'addon_price']),
+        groups: c.option_groups,
+        choices: num(c.option_choices, ['price_delta']),
       })
       setError(null)
     } catch (e) {
@@ -114,29 +103,15 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void reload()
-    if (!supabaseConfigured) return
-    // Live: sold-out toggles, badges, photos and store availability.
-    const channel = supabase
-      .channel('catalog-live')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'products' }, (p) =>
-        patch('products', (p.new as Product).id, p.new as Product),
-      )
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'product_variants' }, (p) => {
-        const v = p.new as Variant
-        patch('variants', v.id, { ...v, price: Number(v.price), addon_price: v.addon_price === null ? null : Number(v.addon_price) })
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'stores' }, (p) =>
-        patch('stores', (p.new as Store).id, p.new as Store),
-      )
-      .subscribe()
-    // Safety net if the realtime socket drops (e.g. phone asleep).
+    // Sold-out toggles, badges, photos and store availability: re-read now and then, and when the customer comes back.
+    const refresh = setInterval(() => document.visibilityState === 'visible' && void reload(), REFRESH_MS)
     const onVisible = () => document.visibilityState === 'visible' && void reload()
     document.addEventListener('visibilitychange', onVisible)
     return () => {
-      void supabase.removeChannel(channel)
+      clearInterval(refresh)
       document.removeEventListener('visibilitychange', onVisible)
     }
-  }, [reload, patch])
+  }, [reload])
 
   const value = useMemo<Catalog>(() => {
     const products = [...data.products].sort(bySort)

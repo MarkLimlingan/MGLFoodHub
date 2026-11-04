@@ -12,10 +12,12 @@ export default function AdminLogin() {
   useEffect(() => {
     document.title = 'MGL Food Hub · Admin'
   }, [])
-  const { status, signIn } = useAdminAuth()
+  const { status, signIn, setup } = useAdminAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [setupKey, setSetupKey] = useState('')
+  const [firstTime, setFirstTime] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -26,7 +28,7 @@ export default function AdminLogin() {
     e.preventDefault()
     setBusy(true)
     setError(null)
-    const err = await signIn(email.trim(), password)
+    const err = firstTime ? await setup(setupKey.trim(), email.trim(), password) : await signIn(email.trim(), password)
     setBusy(false)
     if (err) setError(err)
     else navigate('/admin', { replace: true })
@@ -39,20 +41,45 @@ export default function AdminLogin() {
         <div className="flex flex-col items-center gap-3 text-center">
           <Logo className="h-24" />
           <div>
-            <h1 className="font-display text-3xl font-bold">Admin sign in</h1>
-            <p className="text-sm text-navy/60">Authorized MGL Food Hub staff only.</p>
+            <h1 className="font-display text-3xl font-bold">{firstTime ? 'Create the first admin' : 'Admin sign in'}</h1>
+            <p className="text-sm text-navy/60">
+              {firstTime ? 'Use the setup key from config.php. This works only once.' : 'Authorized MGL Food Hub staff only.'}
+            </p>
           </div>
         </div>
+        {firstTime && (
+          <Field label="Setup key" htmlFor="setup-key">
+            <Input id="setup-key" type="password" autoComplete="off" value={setupKey} onChange={(e) => setSetupKey(e.target.value)} required />
+          </Field>
+        )}
         <Field label="Email" htmlFor="email">
           <Input id="email" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />
         </Field>
-        <Field label="Password" htmlFor="password">
-          <Input id="password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+        <Field label="Password" htmlFor="password" hint={firstTime ? 'At least 10 characters.' : undefined}>
+          <Input
+            id="password"
+            type="password"
+            autoComplete={firstTime ? 'new-password' : 'current-password'}
+            minLength={firstTime ? 10 : undefined}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
         </Field>
         {error && <ErrorBanner>{error}</ErrorBanner>}
         <Button type="submit" size="lg" className="w-full" loading={busy}>
-          <Lock /> Sign in
+          <Lock /> {firstTime ? 'Create admin and sign in' : 'Sign in'}
         </Button>
+        <button
+          type="button"
+          onClick={() => {
+            setFirstTime((v) => !v)
+            setError(null)
+          }}
+          className="block w-full text-center text-xs font-semibold text-navy/60 underline-offset-2 hover:text-navy hover:underline"
+        >
+          {firstTime ? 'Back to sign in' : 'First time setup'}
+        </button>
       </form>
     </div>
   )

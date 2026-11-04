@@ -1,12 +1,11 @@
-import { useEffect, useState } from 'react'
-import type { User } from '@supabase/supabase-js'
-import { supabase } from './supabase'
+import { useEffect, useState, useSyncExternalStore } from 'react'
+import { customerToken, errorMessage, rpc, setCustomerToken } from './api'
+import { randomId } from './utils'
 
-/** Accounts a customer can verify with at checkout. Facebook sign in was removed; old Facebook sessions are ignored. */
+/** Accounts a customer can verify with at checkout. */
 export type SignInProvider = 'google'
 export const SIGN_IN_PROVIDERS: SignInProvider[] = ['google']
 export const PROVIDER_NAME: Record<SignInProvider, string> = { google: 'Google' }
-const isProvider = (p: unknown): p is SignInProvider => SIGN_IN_PROVIDERS.includes(p as SignInProvider)
 
 export interface AccountProfile {
   provider: SignInProvider
@@ -17,132 +16,146 @@ export interface AccountProfile {
 
 /** Set before leaving for Google, so the guidelines popup doesn't reopen on the way back. */
 export const SIGNIN_RETURN_KEY = 'mgl_google_return'
-/** Which one the customer left for, so a failed return can name it. */
-const SIGNIN_PROVIDER_KEY = 'mgl_signin_provider'
-
-/** The account the customer verified with on this device, or null when they haven't. */
-export function accountProfile(user: User | null): AccountProfile | null {
-  if (!user) return null
-  const app = user.app_metadata ?? {}
-  const providers = (Array.isArray(app.providers) ? app.providers : [app.provider]).filter(isProvider)
-  if (!providers.length) return null
-  const provider = providers[0]
-  const meta = user.user_metadata ?? {}
-  return {
-    provider,
-    name: meta.full_name || meta.name || user.email || `${PROVIDER_NAME[provider]} user`,
-    email: user.email || meta.email || null,
-    picture: meta.avatar_url || meta.picture || null,
-  }
-}
+/** What we sent to Google (state, nonce) and the checkout address to come back to. */
+const SIGNIN_STATE_KEY = 'mgl_google_state'
 
 /** Local testing only (npm run dev): show the sign in step without the admin switch. ?nogoogle hides it. */
 export const devSignInPreview = () => import.meta.env.DEV && !new URLSearchParams(window.location.search).has('nogoogle')
 
-let requiredCheck: Promise<boolean> | null = null
+interface CheckoutBasics {
+  require_google_login?: boolean
+  google_client_id?: string
+}
+let basics: Promise<CheckoutBasics | null> | null = null
+function loadBasics(): Promise<CheckoutBasics | null> {
+  basics ??= rpc<CheckoutBasics>('get_checkout_info').then(({ data, error }) => {
+    if (error) basics = null // try again next time
+    return data
+  })
+  return basics
+}
 
 /** Whether the admin switched on "Require Google account at checkout" (checked once per page load). */
 export function useSignInRequired(): boolean {
   const [required, setRequired] = useState(devSignInPreview)
   useEffect(() => {
     if (required) return
-    requiredCheck ??= Promise.resolve(supabase.rpc('get_checkout_info')).then(
-      ({ data }) => (data as { require_google_login?: boolean } | null)?.require_google_login === true,
-      () => false,
-    )
-    void requiredCheck.then(setRequired)
+    void loadBasics().then((d) => setRequired(d?.require_google_login === true))
   }, [required])
   return required
 }
 
-/** Reads (and clears) an error Google or Supabase sent back in the URL, e.g. when the customer cancels. */
-function takeReturnError(): string | null {
-  const url = new URL(window.location.href)
-  const hash = new URLSearchParams(url.hash.slice(1))
-  const message = url.searchParams.get('error_description') ?? hash.get('error_description')
-  if (!message && !url.searchParams.has('error') && !hash.has('error')) return null
-  for (const k of ['error', 'error_code', 'error_description']) url.searchParams.delete(k)
-  window.history.replaceState(window.history.state, '', url.pathname + url.search)
-  return message ? message.replace(/\+/g, ' ') : 'Sign in did not finish linking your account.'
+// ---------------------------------------------------------------------
+// One shared sign in state for every part of the page (cart, checkout)
+// ---------------------------------------------------------------------
+interface State {
+  ready: boolean
+  profile: AccountProfile | null
+  error: string | null
+}
+let state: State = { ready: false, profile: null, error: null }
+const listeners = new Set<() => void>()
+function set(next: Partial<State>) {
+  state = { ...state, ...next }
+  for (const l of listeners) l()
 }
 
-// Read once when the site loads, so whichever part of the page asks first doesn't swallow it for the rest.
-const returnError = typeof window === 'undefined' ? null : takeReturnError()
+type GoogleProfile = { name: string | null; email: string | null; picture: string | null }
+const toProfile = (p: GoogleProfile): AccountProfile => ({
+  provider: 'google',
+  name: p.name || p.email || 'Google user',
+  email: p.email,
+  picture: p.picture,
+})
 
-// The provider comes back with ?code=… (PKCE). supabase-js swaps it for a session on load, using a secret it
-// saved in this browser before leaving. Remember the code was here, so a failed swap isn't silent.
-const returnedWithCode = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('code')
-
-const returnProvider: SignInProvider = (() => {
+function takeSaved(): { state: string; nonce: string; search: string } | null {
   try {
-    const p = sessionStorage.getItem(SIGNIN_PROVIDER_KEY)
-    return isProvider(p) ? p : 'google'
+    const raw = sessionStorage.getItem(SIGNIN_STATE_KEY)
+    sessionStorage.removeItem(SIGNIN_STATE_KEY)
+    return raw ? JSON.parse(raw) : null
   } catch {
-    return 'google'
+    return null
   }
-})()
+}
 
-/** Why a return from Google didn't sign the customer in, in plain words. */
-function unfinishedMessage(detail?: string): string {
-  const name = PROVIDER_NAME[returnProvider]
-  // No swap was even attempted: the secret saved before leaving isn't in this browser/address.
-  if (!detail) {
-    return `${name} sign in came back to a different page than where it started, so it couldn't finish. Please tap Continue with ${name} again from ${window.location.host}.`
+/**
+ * Runs once when the site loads: finishes a return from Google (the ID token
+ * comes back in the address after #), or checks the saved sign in.
+ */
+async function start() {
+  const hash = new URLSearchParams(window.location.hash.slice(1))
+  if (hash.has('id_token') || hash.has('error')) {
+    const saved = takeSaved()
+    // Take the token out of the address straight away, and put back the checkout address it left from.
+    window.history.replaceState(window.history.state, '', window.location.pathname + (saved?.search ?? window.location.search))
+    if (!saved || hash.get('state') !== saved.state) {
+      return set({ ready: true, error: `Google sign in came back to a different page than where it started, so it couldn't finish. Please tap Continue with Google again from ${window.location.host}.` })
+    }
+    if (hash.has('error')) {
+      const cancelled = hash.get('error') === 'access_denied'
+      return set({ ready: true, error: cancelled ? 'Google sign in was cancelled.' : 'Google sign in did not finish. Please tap Continue with Google again.' })
+    }
+    const { data, error } = await rpc<GoogleProfile & { token: string }>('google_sign_in', { credential: hash.get('id_token'), nonce: saved.nonce })
+    if (error) return set({ ready: true, error: errorMessage(error) })
+    setCustomerToken(data.token)
+    return set({ ready: true, profile: toProfile(data) })
   }
-  return `${name} sign in didn't finish (${detail}). Please tap Continue with ${name} again.`
+  if (!customerToken()) return set({ ready: true })
+  const { data, error } = await rpc<GoogleProfile | null>('customer_session')
+  if (!error && !data) setCustomerToken(null) // expired
+  set({ ready: true, profile: data ? toProfile(data) : null })
+}
+let started = false
+
+function subscribe(listener: () => void) {
+  listeners.add(listener)
+  if (!started) {
+    started = true
+    void start()
+  }
+  return () => listeners.delete(listener)
 }
 
 export function useAccountLink() {
-  const [user, setUser] = useState<User | null>(null)
-  const [ready, setReady] = useState(false)
-  const [error, setError] = useState<string | null>(returnError)
+  const current = useSyncExternalStore(subscribe, () => state)
 
-  useEffect(() => {
-    let alive = true
-    // initialize() settles after supabase-js has handled any ?code=… from the provider, and returns its error if the swap failed.
-    void supabase.auth.initialize().then(async ({ error: initError }) => {
-      const { data } = await supabase.auth.getSession()
-      if (!alive) return
-      const u = data.session?.user ?? null
-      setUser(u)
-      setReady(true)
-      if (initError) setError(unfinishedMessage(initError.message))
-      else if (returnedWithCode && !accountProfile(u)) setError(unfinishedMessage())
-    })
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-      setReady(true)
-    })
-    return () => {
-      alive = false
-      sub.subscription.unsubscribe()
-    }
-  }, [])
-
-  /** Leaves the site for Google and comes back to checkout. */
+  /** Leaves the site for Google's account chooser and comes back to checkout. */
   const link = async (provider: SignInProvider) => {
-    setError(null)
-    try {
-      sessionStorage.setItem(SIGNIN_RETURN_KEY, '1')
-      sessionStorage.setItem(SIGNIN_PROVIDER_KEY, provider)
-    } catch {
-      /* private mode: the guidelines popup just shows again */
+    set({ error: null })
+    const clientId = (await loadBasics())?.google_client_id
+    if (!clientId) {
+      return set({
+        error: import.meta.env.DEV
+          ? 'Google sign in is not set up: put the Google Client ID in google_client_id in hostinger/config.dev.php.'
+          : `${PROVIDER_NAME[provider]} sign in is not available right now. Please try again later.`,
+      })
     }
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: `${window.location.origin}/checkout${window.location.search}`,
-        // Always show the account chooser, so a shared phone doesn't silently reuse someone else's Gmail.
-        queryParams: { prompt: 'select_account' },
-      },
+    const saved = { state: randomId(), nonce: randomId(), search: window.location.search }
+    try {
+      sessionStorage.setItem(SIGNIN_STATE_KEY, JSON.stringify(saved))
+      sessionStorage.setItem(SIGNIN_RETURN_KEY, '1')
+    } catch {
+      return set({ error: 'Google sign in needs this browser to allow site data. Please turn off private browsing and try again.' })
+    }
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: `${window.location.origin}/checkout`,
+      response_type: 'id_token',
+      scope: 'openid email profile',
+      state: saved.state,
+      nonce: saved.nonce,
+      // Always show the account chooser, so a shared phone doesn't silently reuse someone else's Gmail.
+      prompt: 'select_account',
     })
-    if (error) setError(error.message)
+    window.location.assign(`https://accounts.google.com/o/oauth2/v2/auth?${params}`)
   }
 
   /** Signs out on this device only. */
   const unlink = async () => {
-    await supabase.auth.signOut({ scope: 'local' })
+    await rpc('customer_sign_out')
+    setCustomerToken(null)
+    set({ profile: null })
   }
 
-  return { ready, profile: accountProfile(user), error, link, unlink }
+  return { ready: current.ready, profile: current.profile, error: current.error, link, unlink }
 }

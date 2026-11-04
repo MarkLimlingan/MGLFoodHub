@@ -3,6 +3,7 @@
 // the security rules and RPCs. Usage: npm run test:db
 import { PGlite } from '@electric-sql/pglite'
 import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto'
+import { createHmac } from 'node:crypto'
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -645,6 +646,31 @@ await pg.query(`update settings set value = '"call me maybe"' where key = 'owner
 ok((await pg.query('select get_owner_contact() as c')).rows[0].c.phone === '', 'a value that is not a phone number is never shown')
 await pg.query(`update settings set value = '"-------"' where key = 'owner_phone'`)
 ok((await pg.query('select get_owner_contact() as c')).rows[0].c.phone === '', 'a number with no digits is never shown')
+
+// ---------------------------------------------------------------------
+console.log('\nPayment screenshots on Hostinger')
+// Same signature as hostinger/api/proof.php: first 32 hex chars of HMAC-SHA256.
+const proofSecret = 'test-secret-0123456789abcdef0123456789'
+const signedProof = (base, secret = proofSecret, ext = 'jpg') =>
+  `${base}.h${createHmac('sha256', secret).update(base).digest('hex').slice(0, 32)}.${ext}`
+const hostedPath = signedProof('proofs/device-h/1762230000000-a1b2c3d4')
+await asRole('anon')
+await expectError(pg, `select place_order($1::jsonb)`, [JSON.stringify({ ...base, phone: '09170000021', payment_method: 'gcash', gcash_reference: '1234567890', gcash_proof_path: hostedPath, items: [{ variant_id: okoy, quantity: 1 }] })], 'screenshot', 'a Hostinger screenshot is refused until the secret is saved')
+await asSuper()
+await pg.query(`insert into private.secrets (name, value) values ('proof_hmac', $1) on conflict (name) do update set value = excluded.value`, [proofSecret])
+await pg.query(`update product_variants set is_sold_out = false where id = $1`, [okoy])
+await asRole('anon')
+await expectError(pg, 'select name from private.secrets', [], 'permission denied', 'customers cannot read the secret')
+const rH = (await place({ ...base, phone: '09170000021', payment_method: 'gcash', gcash_reference: '1234567890', gcash_proof_path: hostedPath, items: [{ variant_id: okoy, quantity: 1 }] })).rows[0].r
+ok(Boolean(rH.tracking_token), 'GCash order with a signed Hostinger screenshot is accepted')
+await expectError(pg, `select place_order($1::jsonb)`, [JSON.stringify({ ...base, phone: '09170000022', payment_method: 'gcash', gcash_reference: '1234567890', gcash_proof_path: signedProof('proofs/device-h/1762230000000-a1b2c3d4', 'wrong-secret-0123456789abcdef012345'), items: [{ variant_id: okoy, quantity: 1 }] })], 'screenshot', 'a made up signature is refused')
+await expectError(pg, `select place_order($1::jsonb)`, [JSON.stringify({ ...base, phone: '09170000022', payment_method: 'gcash', gcash_reference: '1234567890', gcash_proof_path: hostedPath.replace('device-h', 'device-x'), items: [{ variant_id: okoy, quantity: 1 }] })], 'screenshot', 'a signature copied onto another file name is refused')
+await asSuper()
+await pg.query(`update orders set payment_status = 'rejected' where tracking_token = $1`, [rH.tracking_token])
+await asRole('anon')
+await pg.query('select resubmit_gcash_proof($1, $2, $3)', [rH.tracking_token, 'HS123456', signedProof('proofs/device-h/1762230000001-b2c3d4e5', proofSecret, 'png')])
+ok((await pg.query('select get_order_by_token($1) as o', [rH.tracking_token])).rows[0].o.payment_status === 'pending_verification', 'a new signed screenshot can be sent from the tracking page')
+await asSuper()
 
 console.log(`\n${passed} passed, ${failed} failed`)
 process.exit(failed ? 1 : 0)

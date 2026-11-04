@@ -8,4 +8,8 @@ export default defineConfig({
   resolve: {
     alias: { '@': path.resolve(import.meta.dirname, './src') },
   },
+  // npm run dev: /api (and admin photo uploads) go to the PHP server started by npm run dev:api.
+  server: {
+    proxy: { '/api': 'http://127.0.0.1:8710', '/uploads': 'http://127.0.0.1:8710' },
+  },
 })

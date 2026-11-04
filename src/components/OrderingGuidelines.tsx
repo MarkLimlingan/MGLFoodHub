@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { create } from 'zustand'
 import { BadgeCheck, Banknote, CalendarClock, Download, PhoneCall, ReceiptText, Store, Truck } from 'lucide-react'
-import { supabase, supabaseConfigured } from '@/lib/supabase'
+import { rpc } from '@/lib/api'
 import { SIGNIN_RETURN_KEY } from '@/lib/signin'
 import { storage } from '@/lib/utils'
 import { useInstallApp } from './InstallApp'
@@ -36,8 +36,7 @@ const SEEN_KEY = 'mgl_guidelines_seen_v1'
 export function useOrderingGuidelines(): string[] {
   const [items, setItems] = useState<string[]>(DEFAULT_GUIDELINES)
   useEffect(() => {
-    if (!supabaseConfigured) return
-    void supabase.rpc('get_checkout_info').then(({ data }) => {
+    void rpc('get_checkout_info').then(({ data }) => {
       const list = (data as { ordering_guidelines?: unknown } | null)?.ordering_guidelines
       if (Array.isArray(list) && list.length && list.every((x) => typeof x === 'string')) setItems(list as string[])
     })

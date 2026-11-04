@@ -2,7 +2,7 @@ import { usePageTitle } from '@/hooks/usePageTitle'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronRight, ClipboardList, Search, Trash2 } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { rpc } from '@/lib/api'
 import { getMyOrders, removeMyOrder, type SavedOrder } from '@/lib/myOrders'
 import { ORDER_STATUS_LABEL, ORDER_STATUS_TONE, PAYMENT_METHOD_LABEL, PAYMENT_STATUS_LABEL } from '@/lib/orderStatus'
 import type { OrderSummary } from '@/lib/types'
@@ -20,7 +20,7 @@ export default function MyOrders() {
 
   useEffect(() => {
     if (!saved.length) return
-    void supabase.rpc('get_order_summaries', { p_tokens: saved.map((s) => s.token) }).then(({ data }) => {
+    void rpc('get_order_summaries', { p_tokens: saved.map((s) => s.token) }).then(({ data }) => {
       setSummaries(new Map(((data ?? []) as OrderSummary[]).map((o) => [o.tracking_token, o])))
       setLoading(false)
     })

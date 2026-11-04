@@ -1,16 +1,21 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { Outlet } from 'react-router-dom'
-import type { User } from '@supabase/supabase-js'
 import { Loader2 } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { adminSignedOut, adminToken, errorMessage, rpc, setAdminToken } from '@/lib/api'
 import NotFound from '@/pages/NotFound'
 
 type Status = 'loading' | 'signed_out' | 'admin'
 
+interface AdminUser {
+  email: string
+}
+
 interface AdminAuth {
   status: Status
-  user: User | null
+  user: AdminUser | null
   signIn: (email: string, password: string) => Promise<string | null>
+  /** First time only: creates the first admin with the setup key from config.php. */
+  setup: (setupKey: string, email: string, password: string) => Promise<string | null>
   signOut: () => Promise<void>
 }
 
@@ -19,15 +24,10 @@ const Ctx = createContext<AdminAuth | null>(null)
 const normalizePath = (p: string) => '/' + p.replace(/^\/+|\/+$/g, '')
 export const ADMIN_LOGIN_PATH = normalizePath((import.meta.env.VITE_ADMIN_PATH as string | undefined) || '/mgl-hub-admin-portal')
 
-async function checkAdmin(): Promise<boolean> {
-  const { data, error } = await supabase.rpc('is_admin')
-  return !error && data === true
-}
-
-/** Wraps every admin route (login + /admin/*). Adds noindex and validates admin rights. */
+/** Wraps every admin route (login + /admin/*). Adds noindex and checks the saved admin sign in. */
 export function AdminRoot() {
   const [status, setStatus] = useState<Status>('loading')
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<AdminUser | null>(null)
 
   useEffect(() => {
     const meta = document.createElement('meta')
@@ -37,53 +37,50 @@ export function AdminRoot() {
     return () => meta.remove()
   }, [])
 
-  const evaluate = useCallback(async (u: User | null) => {
-    if (!u) {
-      setUser(null)
-      setStatus('signed_out')
-      return
-    }
-    if (await checkAdmin()) {
-      setUser(u)
-      setStatus('admin')
-    } else {
-      // Any non-admin who signs in is signed out immediately.
-      await supabase.auth.signOut()
-      setUser(null)
-      setStatus('signed_out')
-    }
-  }, [])
-
-  useEffect(() => {
-    void supabase.auth.getSession().then(({ data }) => evaluate(data.session?.user ?? null))
-    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      // Defer: calling Supabase inside this callback can deadlock the client.
-      if (event === 'SIGNED_OUT') setTimeout(() => void evaluate(null), 0)
-      else if (event === 'SIGNED_IN') setTimeout(() => void evaluate(session?.user ?? null), 0)
-    })
-    return () => sub.subscription.unsubscribe()
-  }, [evaluate])
-
-  const signIn = useCallback<AdminAuth['signIn']>(async (email, password) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) return error.message === 'Invalid login credentials' ? 'Incorrect email or password.' : error.message
-    if (!(await checkAdmin())) {
-      await supabase.auth.signOut()
-      return 'This account does not have admin access.'
-    }
-    setUser(data.user)
-    setStatus('admin')
-    return null
-  }, [])
-
-  const signOut = useCallback(async () => {
-    await supabase.auth.signOut()
+  const signedOut = useCallback(() => {
+    setAdminToken(null)
     setUser(null)
     setStatus('signed_out')
   }, [])
 
+  useEffect(() => {
+    if (!adminToken()) return signedOut()
+    void rpc<AdminUser | null>('admin_session').then(({ data, error }) => {
+      // No answer (offline): keep the token and show the login; signing in again replaces it.
+      if (error || !data) return error ? setStatus('signed_out') : signedOut()
+      setUser(data)
+      setStatus('admin')
+    })
+  }, [signedOut])
+
+  // The server said the sign in expired (or another device changed the password).
+  useEffect(() => {
+    adminSignedOut.addEventListener('signedout', signedOut)
+    return () => adminSignedOut.removeEventListener('signedout', signedOut)
+  }, [signedOut])
+
+  const finish = useCallback(async (fn: string, args: Record<string, unknown>) => {
+    const { data, error } = await rpc<{ token: string; email: string }>(fn, args)
+    if (error) return errorMessage(error)
+    setAdminToken(data.token)
+    setUser({ email: data.email })
+    setStatus('admin')
+    return null
+  }, [])
+
+  const signIn = useCallback<AdminAuth['signIn']>((email, password) => finish('admin_sign_in', { email, password }), [finish])
+  const setup = useCallback<AdminAuth['setup']>(
+    (setupKey, email, password) => finish('create_first_admin', { setup_key: setupKey, email, password }),
+    [finish],
+  )
+
+  const signOut = useCallback(async () => {
+    await rpc('admin_sign_out')
+    signedOut()
+  }, [signedOut])
+
   return (
-    <Ctx.Provider value={{ status, user, signIn, signOut }}>
+    <Ctx.Provider value={{ status, user, signIn, setup, signOut }}>
       <Outlet />
     </Ctx.Provider>
   )

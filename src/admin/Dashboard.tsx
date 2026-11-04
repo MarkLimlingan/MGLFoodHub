@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Banknote, CalendarClock, ChevronLeft, ChevronRight, Phone, ShieldCheck, ShoppingBag, TrendingUp, XCircle } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { rpc } from '@/lib/api'
 import type { OrderRow } from '@/lib/types'
-import { addDays, cn, formatDate, formatDateTime, manilaNow, peso, slotLabel, toCents } from '@/lib/utils'
+import { addDays, cn, formatDate, formatDateTime, manilaNow, peso, slotLabel } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { AdminPageHeader, OrderBadges, Panel, StatCard } from './ui'
 import { useAdminLive } from './AdminLayout'
@@ -18,22 +18,6 @@ interface Stats {
   revenueMonth: number
 }
 
-const count = async (build: (q: ReturnType<typeof base>) => ReturnType<typeof base>) => {
-  const { count } = await build(base())
-  return count ?? 0
-}
-const base = () => supabase.from('orders').select('id', { count: 'exact', head: true })
-
-async function sumDelivered(from: string, to: string) {
-  const { data } = await supabase
-    .from('orders')
-    .select('subtotal')
-    .eq('order_status', 'delivered')
-    .gte('delivery_date', from)
-    .lte('delivery_date', to)
-    .limit(10000)
-  return (data ?? []).reduce((n, o) => n + toCents(o.subtotal), 0) / 100
-}
 
 export default function Dashboard() {
   const { version } = useAdminLive()
@@ -42,33 +26,20 @@ export default function Dashboard() {
   const today = manilaNow().date
   const tomorrow = addDays(today, 1)
 
+  // Counted on the server in Manila time (week from Monday; revenue = delivered food subtotals).
   useEffect(() => {
-    const d = new Date(`${today}T00:00:00Z`)
-    const weekStart = addDays(today, -((d.getUTCDay() + 6) % 7)) // Monday
-    const monthStart = `${today.slice(0, 8)}01`
-    void Promise.all([
-      count((q) => q.gte('created_at', `${today}T00:00:00+08:00`)),
-      count((q) => q.neq('payment_method', 'cod').eq('payment_status', 'pending_verification').eq('order_status', 'processing')),
-      count((q) => q.eq('payment_method', 'cod').eq('order_status', 'processing')),
-      count((q) => q.eq('delivery_date', tomorrow).neq('order_status', 'cancelled')),
-      count((q) => q.eq('cancel_requested', true)),
-      sumDelivered(weekStart, today),
-      sumDelivered(monthStart, today),
-    ]).then(([newToday, gcashToVerify, codToCall, tmr, cancelRequests, revenueWeek, revenueMonth]) =>
-      setStats({ newToday, gcashToVerify, codToCall, tomorrow: tmr, cancelRequests, revenueWeek, revenueMonth }),
-    )
-    void supabase
-      .from('orders')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(8)
-      .then(({ data }) => setRecent((data ?? []) as OrderRow[]))
+    void rpc<Stats & { recent: OrderRow[] }>('admin_dashboard').then(({ data }) => {
+      if (!data) return
+      const { recent: latest, ...counts } = data
+      setStats(counts)
+      setRecent(latest)
+    })
   }, [version, today, tomorrow])
 
   const loading = !stats
   return (
     <div className="space-y-6">
-      <AdminPageHeader title="Dashboard" description="Live. New orders appear here instantly." />
+      <AdminPageHeader title="Dashboard" description="Live. New orders appear here within seconds." />
 
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 xl:grid-cols-4">
         <StatCard label="New orders today" value={stats?.newToday} icon={<ShoppingBag />} accent="brand" loading={loading} to={`/admin/orders?created=${today}`} />
@@ -135,23 +106,16 @@ function DeliveryCalendar({ version, today }: { version: number; today: string }
   useEffect(() => {
     const from = `${month}-01`
     const to = `${month}-${String(days.total).padStart(2, '0')}`
-    void supabase
-      .from('orders')
-      .select('delivery_date, order_status')
-      .gte('delivery_date', from)
-      .lte('delivery_date', to)
-      .neq('order_status', 'cancelled')
-      .limit(10000)
-      .then(({ data }) => {
-        const map = new Map<string, { total: number; pending: number }>()
-        for (const o of data ?? []) {
-          const c = map.get(o.delivery_date) ?? { total: 0, pending: 0 }
-          c.total++
-          if (o.order_status === 'processing') c.pending++
-          map.set(o.delivery_date, c)
-        }
-        setCounts(map)
-      })
+    void rpc<Pick<OrderRow, 'delivery_date' | 'order_status'>[]>('admin_calendar', { from, to }).then(({ data }) => {
+      const map = new Map<string, { total: number; pending: number }>()
+      for (const o of data ?? []) {
+        const c = map.get(o.delivery_date) ?? { total: 0, pending: 0 }
+        c.total++
+        if (o.order_status === 'processing') c.pending++
+        map.set(o.delivery_date, c)
+      }
+      setCounts(map)
+    })
   }, [month, days.total, version])
 
   const shift = (n: number) => {

@@ -9,3 +9,9 @@ supabase/.branches
 
 .vercel
 .env*
+
+hostinger/secret.local.sql
+hostinger/mysql/*.local.sql
+hostinger/config.dev.php
+hostinger/dev-data/
+hostinger/mgl-config.php

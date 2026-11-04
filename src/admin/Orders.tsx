@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { ChevronLeft, ChevronRight, Download, FilterX, Pencil, Phone, Search } from 'lucide-react'
-import { supabase, errorMessage } from '@/lib/supabase'
+import { rpc, errorMessage } from '@/lib/api'
 import { useCatalog } from '@/hooks/useCatalog'
 import { downloadCsv } from '@/lib/csv'
 import { ONLINE_METHODS, ORDER_STATUS_LABEL, PAYMENT_METHOD_LABEL, PAYMENT_STATUS_LABEL } from '@/lib/orderStatus'
@@ -18,27 +18,9 @@ import { useAdminLive } from './AdminLayout'
 const PAGE = 30
 type Row = OrderRow & { order_items: { store_id: string; store_name_snapshot: string }[] }
 
-function useOrderQuery(params: URLSearchParams) {
-  return useMemo(() => {
-    const f = Object.fromEntries(params.entries())
-    return (select: string, opts?: { count?: 'exact' }) => {
-      let q = supabase.from('orders').select(select, opts)
-      if (f.date) q = q.eq('delivery_date', f.date)
-      if (f.created) q = q.gte('created_at', `${f.created}T00:00:00+08:00`).lt('created_at', `${f.created}T23:59:59.999+08:00`)
-      if (f.status === 'cancel_requested') q = q.eq('cancel_requested', true)
-      else if (f.status === 'active') q = q.not('order_status', 'in', '(delivered,cancelled)')
-      else if (f.status) q = q.eq('order_status', f.status)
-      if (f.method === 'online') q = q.neq('payment_method', 'cod')
-      else if (f.method) q = q.eq('payment_method', f.method)
-      if (f.pstatus) q = q.eq('payment_status', f.pstatus)
-      if (f.store) q = q.eq('order_items.store_id', f.store)
-      const s = (f.q ?? '').replace(/[,()%*\\]/g, ' ').trim()
-      if (s) q = q.or(`customer_name.ilike.%${s}%,phone.ilike.%${s}%,order_number.ilike.%${s}%`)
-      return f.sort === 'delivery'
-        ? q.order('delivery_date', { ascending: true }).order('delivery_slot', { ascending: true })
-        : q.order('created_at', { ascending: false })
-    }
-  }, [params])
+/** The page's URL filters (date, created, status, method, pstatus, store, q, sort), applied by the server. */
+function useOrderFilters(params: URLSearchParams) {
+  return useMemo(() => Object.fromEntries(params.entries()), [params])
 }
 
 export default function Orders() {
@@ -51,28 +33,25 @@ export default function Orders() {
   const [search, setSearch] = useState(params.get('q') ?? '')
   const [exporting, setExporting] = useState(false)
   const page = Number(params.get('page') ?? '0')
-  const build = useOrderQuery(params)
-  const itemsSelect = params.get('store') ? 'order_items!inner(store_id, store_name_snapshot)' : 'order_items(store_id, store_name_snapshot)'
+  const filters = useOrderFilters(params)
 
   useEffect(() => clearUnseen(), [clearUnseen])
 
   useEffect(() => {
     let cancelled = false
-    void build(`*, ${itemsSelect}`, { count: 'exact' })
-      .range(page * PAGE, page * PAGE + PAGE - 1)
-      .then(({ data, error, count }) => {
-        if (cancelled) return
-        if (error) setError(errorMessage(error))
-        else {
-          setRows((data ?? []) as unknown as Row[])
-          setTotal(count ?? 0)
-          setError(null)
-        }
-      })
+    void rpc<{ rows: Row[]; total: number }>('admin_orders', { filters, page, page_size: PAGE }).then(({ data, error }) => {
+      if (cancelled) return
+      if (error) setError(errorMessage(error))
+      else {
+        setRows(data.rows)
+        setTotal(data.total)
+        setError(null)
+      }
+    })
     return () => {
       cancelled = true
     }
-  }, [build, itemsSelect, page, version])
+  }, [filters, page, version])
 
   // Debounced search box
   useEffect(() => {
@@ -95,13 +74,11 @@ export default function Orders() {
 
   async function exportCsv() {
     setExporting(true)
-    const { data, error } = await build(
-      '*, order_items' + (params.get('store') ? '!inner' : '') + '(store_id, store_name_snapshot, product_name_snapshot, variant_label_snapshot, options_snapshot, quantity, line_total)',
-    ).limit(5000)
+    type Full = OrderRow & { order_items: { store_name_snapshot: string; product_name_snapshot: string; variant_label_snapshot: string; options_snapshot: { group: string; choice: string }[]; quantity: number }[] }
+    const { data, error } = await rpc<Full[]>('admin_orders_export', { filters })
     setExporting(false)
     if (error) return toast.error(errorMessage(error))
-    type Full = OrderRow & { order_items: { store_name_snapshot: string; product_name_snapshot: string; variant_label_snapshot: string; options_snapshot: { group: string; choice: string }[]; quantity: number }[] }
-    const list = (data ?? []) as unknown as Full[]
+    const list = data
     downloadCsv(
       `mgl-orders-${new Date().toISOString().slice(0, 10)}.csv`,
       ['Order #', 'Placed', 'Delivery date', 'Slot', 'Customer', 'Phone', 'Email', 'Google account', 'Address', 'Barangay', 'City', 'Landmark', 'Payment', 'Payment status', 'Order status', 'Payment ref', 'Items', 'Food subtotal', 'Delivery fee', 'Total', 'Customer notes', 'Admin notes', 'Cancel reason'],

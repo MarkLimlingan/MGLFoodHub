@@ -7,3 +7,8 @@ dist
 .claude
 supabase/.temp
 supabase/.branches
+hostinger/secret.local.sql
+hostinger/mysql/*.local.sql
+hostinger/config.dev.php
+hostinger/dev-data/
+hostinger/mgl-config.php

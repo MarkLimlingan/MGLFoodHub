@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { AlertTriangle, ArrowLeft, Ban, Copy, Lock, Plus, RotateCcw, Save, Search, Trash2 } from 'lucide-react'
-import { supabase, errorMessage } from '@/lib/supabase'
+import { rpc, errorMessage } from '@/lib/api'
 import { useCatalog, type Catalog } from '@/hooks/useCatalog'
 import type { OptionChoice, OrderEditChange, OrderItemRow, OrderOption, OrderRow, PaymentMethod, Product } from '@/lib/types'
 import { COD_MAX, COD_MAX_LABEL, ONLINE_METHODS, PAYMENT_METHOD_LABEL } from '@/lib/orderStatus'
@@ -48,7 +48,6 @@ interface Form {
 
 type Errors = Partial<Record<keyof Form | 'items', string>>
 
-const MIGRATION = 'supabase/migrations/20261031000100_edit_order.sql'
 const SCHEDULE_OPEN = ['processing', 'confirmed', 'preparing']
 
 const lineFromItem = (i: OrderItemRow): Line => ({
@@ -146,14 +145,11 @@ export default function OrderEdit() {
   const saved = useRef(false)
 
   const load = useCallback(async () => {
-    const [o, it] = await Promise.all([
-      supabase.from('orders').select('*').eq('id', id).maybeSingle(),
-      supabase.from('order_items').select('*').eq('order_id', id).order('line_no'),
-    ])
-    if (o.error || it.error) return setLoadError(errorMessage(o.error ?? it.error))
-    if (!o.data) return setMissing(true)
-    const row = o.data as OrderRow
-    const list = (it.data ?? []) as OrderItemRow[]
+    const { data, error } = await rpc<{ order: OrderRow; items: OrderItemRow[] } | null>('admin_order_detail', { id })
+    if (error) return setLoadError(errorMessage(error))
+    if (!data) return setMissing(true)
+    const row = data.order
+    const list = data.items
     setOrder(row)
     setItems(list)
     setForm(formFromOrder(row))
@@ -169,26 +165,16 @@ export default function OrderEdit() {
   }, [load])
 
   useEffect(() => {
-    void supabase
-      .from('settings')
-      .select('value')
-      .eq('key', 'blocked_dates')
-      .maybeSingle()
-      .then(({ data }) => Array.isArray(data?.value) && setBlockedDates(data.value as string[]))
+    void rpc<{ blocked_dates?: unknown }>('get_checkout_info').then(({ data }) => Array.isArray(data?.blocked_dates) && setBlockedDates(data.blocked_dates as string[]))
   }, [])
 
   // Someone changed the order (status, payment, another admin) while this page is open.
   const loadedAt = order?.updated_at
   useEffect(() => {
     if (!loadedAt) return
-    void supabase
-      .from('orders')
-      .select('updated_at')
-      .eq('id', id)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data && data.updated_at !== loadedAt && !saved.current) setStale(true)
-      })
+    void rpc<{ order: OrderRow } | null>('admin_order_detail', { id }).then(({ data }) => {
+      if (data && data.order.updated_at !== loadedAt && !saved.current) setStale(true)
+    })
   }, [version, id, loadedAt])
 
   const original = useMemo(() => new Map(items.map((i) => [i.id, i])), [items])
@@ -366,7 +352,7 @@ export default function OrderEdit() {
     const f = form!
     setSaving(true)
     setSaveError(null)
-    const { error } = await supabase.rpc('admin_edit_order', {
+    const { error } = await rpc('admin_edit_order', {
       p_order_id: o.id,
       p_expected_updated_at: o.updated_at,
       p_changes: {
@@ -391,9 +377,7 @@ export default function OrderEdit() {
     setSaving(false)
     setConfirmOpen(false)
     if (error) {
-      const msg = /admin_edit_order|schema cache/i.test(error.message)
-        ? `Edit Order needs a database update. Run ${MIGRATION} in Supabase → SQL Editor, then try again.`
-        : errorMessage(error)
+      const msg = errorMessage(error)
       setSaveError(msg)
       if (/updated while you were editing/i.test(msg)) setStale(true)
       toast.error(msg)

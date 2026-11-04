@@ -1,22 +1,24 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { supabase, errorMessage } from '@/lib/supabase'
+import { useCallback, useEffect, useState } from 'react'
+import { rpc, errorMessage } from '@/lib/api'
 import type { PublicOrder } from '@/lib/types'
 
+/** How often an open tracking page checks for changes. */
+const POLL_MS = 15_000
+
 /**
- * Loads one order by its tracking token and keeps it live: the database pings
- * a channel named after the token whenever the order changes, and we re-read
- * it through get_order_by_token. Polling is a fallback for flaky connections.
+ * Loads one order by its tracking token and keeps it up to date: re-read
+ * through get_order_by_token every few seconds while the page is visible,
+ * and right away when the customer comes back to it.
  */
 export function useTrackedOrder(token: string | undefined) {
   const [order, setOrder] = useState<PublicOrder | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [notFound, setNotFound] = useState(false)
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const load = useCallback(async () => {
     if (!token) return
-    const { data, error } = await supabase.rpc('get_order_by_token', { p_token: token })
+    const { data, error } = await rpc('get_order_by_token', { p_token: token })
     if (error) {
       setError(errorMessage(error))
     } else if (!data) {
@@ -38,19 +40,12 @@ export function useTrackedOrder(token: string | undefined) {
   useEffect(() => {
     if (!token) return
     void load()
-    const refresh = () => {
-      if (timer.current) clearTimeout(timer.current)
-      timer.current = setTimeout(() => void load(), 300)
-    }
-    const channel = supabase.channel(`order:${token}`).on('broadcast', { event: 'order_updated' }, refresh).subscribe()
-    const poll = setInterval(() => document.visibilityState === 'visible' && void load(), 45_000)
+    const poll = setInterval(() => document.visibilityState === 'visible' && void load(), POLL_MS)
     const onVisible = () => document.visibilityState === 'visible' && void load()
     document.addEventListener('visibilitychange', onVisible)
     return () => {
-      void supabase.removeChannel(channel)
       clearInterval(poll)
       document.removeEventListener('visibilitychange', onVisible)
-      if (timer.current) clearTimeout(timer.current)
     }
   }, [token, load])
 

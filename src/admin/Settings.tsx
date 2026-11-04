@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react'
 import { DayPicker } from 'react-day-picker'
 import { toast } from 'sonner'
 import { ImagePlus, Save, X } from 'lucide-react'
-import { supabase, errorMessage } from '@/lib/supabase'
-import { extOf, prepareImage } from '@/lib/image'
+import { errorMessage, rpc, uploadImage } from '@/lib/api'
+import { prepareImage } from '@/lib/image'
 import { dateFromYmd, formatDate, manilaNow, ymdFromDate } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input, Textarea } from '@/components/ui/input'
@@ -56,14 +56,11 @@ export default function Settings() {
   const today = manilaNow().date
 
   useEffect(() => {
-    void supabase
-      .from('settings')
-      .select('key, value')
-      .then(({ data, error }) => {
-        if (error) return setError(errorMessage(error))
-        const values = Object.fromEntries((data ?? []).map((r) => [r.key, r.value]))
-        setForm({ ...DEFAULTS, ...values } as SettingsForm)
-      })
+    void rpc<{ key: string; value: unknown }[]>('admin_get_settings').then(({ data, error }) => {
+      if (error) return setError(errorMessage(error))
+      const values = Object.fromEntries(data.map((r) => [r.key, r.value]))
+      setForm({ ...DEFAULTS, ...values } as SettingsForm)
+    })
   }, [])
 
   const set = <K extends keyof SettingsForm>(k: K, v: SettingsForm[K]) => setForm((f) => (f ? { ...f, [k]: v } : f))
@@ -77,7 +74,6 @@ export default function Settings() {
       return toast.error('Enter a valid owner contact number, or leave it empty.')
     }
     setSaving(true)
-    const now = new Date().toISOString()
     const rows = (Object.keys(DEFAULTS) as (keyof SettingsForm)[]).map((key) => ({
       key,
       value:
@@ -88,9 +84,8 @@ export default function Settings() {
             : key === 'owner_phone'
               ? form.owner_phone.trim()
               : form[key],
-      updated_at: now,
     }))
-    const { error } = await supabase.from('settings').upsert(rows)
+    const { error } = await rpc('admin_save_settings', { rows })
     setSaving(false)
     if (error) toast.error(errorMessage(error))
     else toast.success('Settings saved')
@@ -100,10 +95,7 @@ export default function Settings() {
     setUploading(m)
     try {
       const img = await prepareImage(file, 1200)
-      const path = `${m}/qr-${Date.now()}.${extOf(img)}`
-      const { error } = await supabase.storage.from('store-assets').upload(path, img, { contentType: img.type })
-      if (error) throw error
-      set(`${m}_qr_url`, supabase.storage.from('store-assets').getPublicUrl(path).data.publicUrl)
+      set(`${m}_qr_url`, await uploadImage('store-assets', m, img))
       toast.success('QR uploaded. Click Save to apply.')
     } catch (e) {
       toast.error(errorMessage(e))

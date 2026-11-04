@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import {
   BarChart3, ClipboardList, LayoutDashboard, LogOut, Menu, Package, ScrollText, Settings, Volume2, VolumeX, X,
 } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
+import { rpc } from '@/lib/api'
 import type { OrderRow } from '@/lib/types'
 import { cn, peso, storage } from '@/lib/utils'
 import { PAYMENT_METHOD_LABEL } from '@/lib/orderStatus'
@@ -19,6 +19,17 @@ interface AdminLive {
 }
 const LiveCtx = createContext<AdminLive>({ version: 0, unseen: 0, clearUnseen: () => {} })
 export const useAdminLive = () => useContext(LiveCtx)
+
+/** How often the admin pages ask the server what changed. */
+const LIVE_POLL_MS = 8_000
+
+/** admin_poll: what changed since the last check. */
+interface LivePoll {
+  since: string
+  changed: boolean
+  new_orders: Pick<OrderRow, 'id' | 'order_number' | 'customer_name' | 'payment_method' | 'subtotal'>[]
+  events: { id: string; order_id: string; status: string; note: string | null }[]
+}
 
 // --- New-order chime (Web Audio; no asset needed) -------------------------
 let audioCtx: AudioContext | null = null
@@ -79,26 +90,35 @@ export default function AdminLayout() {
     }
   }, [])
 
+  // Asks the server every few seconds what changed since the last check (new orders, cancellation requests, new payment proofs).
   useEffect(() => {
-    let joined = false
-    const channel = supabase
-      .channel('admin-orders-live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
-        setVersion((v) => v + 1)
-        if (payload.eventType === 'INSERT') {
-          const o = payload.new as OrderRow
-          setUnseen((n) => n + 1)
-          if (soundRef.current) chime()
-          toast.success(`New order ${o.order_number}`, {
-            description: `${o.customer_name} · ${o.payment_method === 'cod' ? 'COD' : PAYMENT_METHOD_LABEL[o.payment_method]} · ${peso(o.subtotal)}`,
-            action: { label: 'Open', onClick: () => navigate(`/admin/orders/${o.id}`) },
-            duration: 10_000,
-          })
-        }
-      })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'order_status_history' }, (payload) => {
-        setVersion((v) => v + 1)
-        const h = payload.new as { status: string; order_id: string; note: string | null }
+    let since: string | null = null
+    let checking = false
+    const seen = new Set<string>()
+    const check = async () => {
+      if (checking) return
+      checking = true
+      const { data } = await rpc<LivePoll>('admin_poll', { since })
+      checking = false
+      if (!data) return
+      const first = since === null
+      since = data.since
+      if (first || !data.changed) return
+      setVersion((v) => v + 1)
+      for (const o of data.new_orders) {
+        if (seen.has(o.id)) continue
+        seen.add(o.id)
+        setUnseen((n) => n + 1)
+        if (soundRef.current) chime()
+        toast.success(`New order ${o.order_number}`, {
+          description: `${o.customer_name} · ${o.payment_method === 'cod' ? 'COD' : PAYMENT_METHOD_LABEL[o.payment_method]} · ${peso(o.subtotal)}`,
+          action: { label: 'Open', onClick: () => navigate(`/admin/orders/${o.id}`) },
+          duration: 10_000,
+        })
+      }
+      for (const h of data.events) {
+        if (seen.has(h.id)) continue
+        seen.add(h.id)
         if (h.status === 'cancel_requested') {
           if (soundRef.current) chime()
           toast.warning('A customer requested a cancellation', {
@@ -111,24 +131,22 @@ export default function AdminLayout() {
             action: { label: 'Open', onClick: () => navigate(`/admin/orders/${h.order_id}`) },
           })
         }
-      })
-      .subscribe((status) => {
-        // The channel rejoins by itself after the socket drops; reload whatever changed meanwhile.
-        if (status !== 'SUBSCRIBED') return
-        if (joined) setVersion((v) => v + 1)
-        joined = true
-      })
+      }
+    }
+    void check()
+    const timer = setInterval(() => void check(), LIVE_POLL_MS)
+    // Back on the tab: reload the page's data and check right away.
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible') return
+      setVersion((v) => v + 1)
+      void check()
+    }
+    document.addEventListener('visibilitychange', onVisible)
     return () => {
-      void supabase.removeChannel(channel)
+      clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisible)
     }
   }, [navigate])
-
-  // Safety net if the realtime socket drops while the tab is in the background.
-  useEffect(() => {
-    const onVisible = () => document.visibilityState === 'visible' && setVersion((v) => v + 1)
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [])
 
   useEffect(() => {
     document.title = unseen ? `(${unseen}) New order · MGL Admin` : 'MGL Food Hub · Admin'

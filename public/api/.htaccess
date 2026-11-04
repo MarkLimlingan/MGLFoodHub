@@ -1,0 +1,7 @@
+Options -Indexes
+
+# The settings (database password, keys) are in mgl-config.php OUTSIDE public_html.
+# Nothing named config.php belongs here; refuse one just in case.
+<Files "config.php">
+  Require all denied
+</Files>

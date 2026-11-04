@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { supabase, supabaseConfigured } from '@/lib/supabase'
+import { rpc } from '@/lib/api'
 import { addDays } from '@/lib/utils'
 
 let cached: Promise<{ today: string; min_date: string } | null> | null = null
@@ -12,8 +12,7 @@ const shortDay = (ymd: string) =>
 export function useEarliestDelivery(): string | null {
   const [label, setLabel] = useState<string | null>(null)
   useEffect(() => {
-    if (!supabaseConfigured) return
-    cached ??= Promise.resolve(supabase.rpc('get_checkout_info')).then(
+    cached ??= Promise.resolve(rpc('get_checkout_info')).then(
       ({ data }) => (data as { today: string; min_date: string } | null) ?? null,
       () => null,
     )

@@ -1,0 +1,5 @@
+# Photos only: nothing in here may ever run as a script.
+Options -Indexes
+<FilesMatch "\.(php\d?|phtml|phar|pl|py|cgi|sh|html?|svg)$">
+  Require all denied
+</FilesMatch>

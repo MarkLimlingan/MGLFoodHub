@@ -8,15 +8,16 @@ import {
 } from 'lucide-react'
 import { useCatalog, useCartView } from '@/hooks/useCatalog'
 import { useCart } from '@/store/cart'
-import { supabase, errorMessage } from '@/lib/supabase'
+import { rpc, errorMessage } from '@/lib/api'
 import type { CheckoutInfo, OnlineMethod, PaymentMethod } from '@/lib/types'
 import { COD_MAX, COD_MAX_LABEL, ONLINE_METHODS, PAYMENT_METHOD_LABEL, paymentAccount } from '@/lib/orderStatus'
 import { PaymentLogo } from '@/components/PaymentLogo'
 import { computeSlots } from '@/lib/slots'
 import { saveMyOrder } from '@/lib/myOrders'
-import { extOf, prepareImage } from '@/lib/image'
+import { prepareImage } from '@/lib/image'
+import { uploadProof } from '@/lib/api'
 import {
-  cn, copyText, dateFromYmd, formatDate, formatTime, isValidEmail, normalizePhone, peso, randomId, storage, ymdFromDate,
+  cn, copyText, dateFromYmd, formatDate, formatTime, isValidEmail, normalizePhone, peso, storage, ymdFromDate,
 } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Field } from '@/components/ui/label'
@@ -116,7 +117,7 @@ export default function Checkout() {
 
   const loadInfo = async () => {
     setInfoError(null)
-    const { data, error } = await supabase.rpc('get_checkout_info')
+    const { data, error } = await rpc('get_checkout_info')
     if (error) setInfoError(errorMessage(error))
     else setInfo(data as CheckoutInfo)
   }
@@ -211,10 +212,7 @@ export default function Checkout() {
         if (uploaded.current?.file === proof) {
           proofPath = uploaded.current.path
         } else {
-          const file = await prepareImage(proof)
-          const path = `proofs/${deviceId.replace(/[^A-Za-z0-9_-]/g, '')}/${Date.now()}-${randomId().slice(0, 8)}.${extOf(file)}`
-          const { error } = await supabase.storage.from('payment-proofs').upload(path, file, { contentType: file.type, upsert: false })
-          if (error) throw new Error('Could not upload your payment screenshot. Please try again.')
+          const path = await uploadProof(await prepareImage(proof), deviceId)
           uploaded.current = { file: proof, path }
           proofPath = path
         }
@@ -246,7 +244,7 @@ export default function Checkout() {
         })),
       }
 
-      const { data, error } = await supabase.rpc('place_order', { payload })
+      const { data, error } = await rpc('place_order', { payload })
       if (error) throw error
       const result = data as { order_number: string; tracking_token: string }
 
@@ -266,9 +264,7 @@ export default function Checkout() {
         landmark: payload.landmark,
       }
       storage.set(DETAILS_KEY, details)
-      if (info?.email_notifications_enabled) {
-        void supabase.functions.invoke('send-order-email', { body: { token: result.tracking_token } }).catch(() => {})
-      }
+      // The confirmation email (when turned on in Settings) is sent by place_order itself.
       placed.current = true
       navigate(`/order-placed/${result.tracking_token}`, { replace: true })
       clearCart() // only after the order is safely placed
