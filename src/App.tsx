@@ -19,6 +19,7 @@ const MyOrders = lazy(() => import('@/pages/MyOrders'))
 const FindOrder = lazy(() => import('@/pages/FindOrder'))
 const Privacy = lazy(() => import('@/pages/Privacy'))
 const Terms = lazy(() => import('@/pages/Terms'))
+const Faq = lazy(() => import('@/pages/Faq'))
 
 // Admin code is split into its own chunk — customers never download it.
 const AdminLogin = lazy(() => import('@/admin/AdminLogin'))
@@ -51,6 +52,7 @@ export default function App() {
           <Route path="find-order" element={<FindOrder />} />
           <Route path="privacy" element={<Privacy />} />
           <Route path="terms" element={<Terms />} />
+          <Route path="faq" element={<Faq />} />
           <Route path="*" element={<NotFound />} />
         </Route>
 

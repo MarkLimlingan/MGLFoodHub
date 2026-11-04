@@ -110,6 +110,7 @@ return [
   'mail_from' => 'MGL Food Hub <orders@mglfoodhub.com>',
   'site_url' => 'https://mglfoodhub.com',
   'mail_transport' => ${php(`file:${mail}`)},
+  'index_html' => ${php(path.join(root, 'index.html'))},
   'allowed_origins' => ['http://localhost:5173'],
 ];
 `)
@@ -560,6 +561,61 @@ try {
   ok((await rpc('admin_session', {}, asAdmin)).data === null, 'signed out')
   for (let i = 0; i < 8; i++) await rpc('admin_sign_in', { email: 'admin@mgl.ph', password: `guess ${i}` })
   await expectError(rpc('admin_sign_in', { email: 'admin@mgl.ph', password: 'another long password' }), 'Too many sign in attempts', 'password guessing is slowed down')
+
+  // -------------------------------------------------------------------
+  console.log('\nSEO and answer engines')
+  const SITE = `http://127.0.0.1:${PORT}`
+  const page = async (p) => {
+    const r = await fetch(SITE + p)
+    const html = await r.text()
+    const ld = html.match(/<script type="application\/ld\+json">(.*?)<\/script>/s)?.[1]
+    return {
+      status: r.status,
+      html,
+      title: html.match(/<title>(.*?)<\/title>/)?.[1],
+      robots: html.match(/<meta name="robots" content="([^"]*)"/)?.[1],
+      canonical: html.match(/<link rel="canonical" href="([^"]*)"/)?.[1],
+      graph: ld ? JSON.parse(ld)['@graph'] : [],
+      noscript: html.match(/<noscript>(.*?)<\/noscript>/s)?.[1] ?? '',
+    }
+  }
+  const home = await page('/')
+  ok(home.status === 200 && home.title === 'MGL Food Hub · Malabon Food Delivery, 4 Merchants in One Cart' && home.canonical === 'https://mglfoodhub.com/', 'home page: title and canonical')
+  ok(home.graph.some((x) => x['@type'] === 'Organization') && home.graph.some((x) => x['@type'] === 'WebSite') && home.html.includes('property="og:image" content="https://mglfoodhub.com/og-image.jpg"'), 'home page: organization, website and link preview image')
+  ok(home.html.includes('/src/main.tsx') && home.noscript.includes('Okoy ni Jay R!'), 'home page: the app still loads, and crawlers get the merchants as text')
+  const storePage = await page('/store/okoy')
+  const food = storePage.graph.find((x) => x['@type'] === 'FoodEstablishment')
+  const okoyItem = food?.hasMenu.hasMenuSection[0].hasMenuItem[0]
+  ok(storePage.title === 'Okoy ni Jay R! Menu and Prices · MGL Food Hub' && okoyItem?.name === 'Special Okoy' && okoyItem.offers.price === '28.80' && okoyItem.offers.priceCurrency === 'PHP', 'store page: menu with prices in structured data')
+  ok(storePage.noscript.includes('Special Okoy') && storePage.noscript.includes('₱28.80') && storePage.graph.some((x) => x['@type'] === 'BreadcrumbList'), 'store page: menu as text, breadcrumbs')
+  sql(`UPDATE products SET is_sold_out = 1 WHERE id = '${I.okoy}'`)
+  ok((await page('/store/okoy')).graph.find((x) => x['@type'] === 'FoodEstablishment').hasMenu.hasMenuSection[0].hasMenuItem[0].offers.availability === 'https://schema.org/SoldOut', 'sold out shows as SoldOut')
+  sql(`UPDATE products SET is_sold_out = 0 WHERE id = '${I.okoy}'`)
+  sql(`UPDATE stores SET tagline = '</script><script>alert(1)</script> "quoted"' WHERE id = '${I.storeB}'`)
+  const evil = await page('/store/rody')
+  ok(!evil.html.includes('<script>alert(1)') && evil.graph.find((x) => x['@type'] === 'FoodEstablishment').description.startsWith('</script>'), 'store text can never break out of the page (escaped)')
+  sql(`UPDATE stores SET tagline = NULL WHERE id = '${I.storeB}'`)
+  const faqPage = await page('/faq')
+  const faqLd = faqPage.graph.find((x) => x['@type'] === 'FAQPage')
+  ok(faqLd?.mainEntity.length >= 10 && faqLd.mainEntity.some((q) => q.acceptedAnswer.text.includes('Cash on Delivery for orders up to ₱2,000,')), 'FAQ page: FAQPage structured data from the settings')
+  const faqApi = (await rpc('get_faq')).data
+  ok(faqApi.length === faqLd.mainEntity.length && faqApi[0].q === faqLd.mainEntity[0].name, 'the visible FAQ and the structured data are the same')
+  ok(!/[–—]/.test(JSON.stringify(faqApi)), 'FAQ copy has no en or em dashes')
+  for (const p of ['/checkout', '/cart', '/track/abc', '/my-orders']) {
+    const r = await page(p)
+    ok(r.status === 200 && r.robots === 'noindex, nofollow' && r.graph.length === 0, `${p}: kept out of search results`)
+  }
+  for (const p of ['/store/nope', '/mgl-hub-admin-portal', '/admin/orders', '/no-such-page']) {
+    const r = await page(p)
+    ok(r.status === 404 && r.robots === 'noindex, nofollow' && r.html.includes('/src/main.tsx'), `${p}: 404 for search engines, the app still loads`)
+  }
+  const sitemap = await fetch(`${SITE}/sitemap.xml`)
+  const sitemapXml = await sitemap.text()
+  ok(sitemap.headers.get('content-type')?.startsWith('application/xml') && sitemapXml.includes('<loc>https://mglfoodhub.com/store/okoy</loc>') && sitemapXml.includes('<loc>https://mglfoodhub.com/faq</loc>') && !sitemapXml.includes('checkout'), 'sitemap.xml lists public pages and every store')
+  const llms = await (await fetch(`${SITE}/llms.txt`)).text()
+  const llmsFull = await (await fetch(`${SITE}/llms-full.txt`)).text()
+  ok(llms.startsWith('# MGL Food Hub') && llms.includes('[Okoy ni Jay R!](https://mglfoodhub.com/store/okoy)') && llms.includes('### How can I pay?'), 'llms.txt: merchants and FAQ for AI assistants')
+  ok(llmsFull.includes('- Special Okoy: ₱28.80') && llmsFull.includes('- Pancit: Small ₱150.00, Bilao ₱650.50'), 'llms-full.txt: every menu with prices')
 
   // -------------------------------------------------------------------
   console.log('\nData checks')

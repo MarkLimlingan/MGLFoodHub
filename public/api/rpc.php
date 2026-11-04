@@ -10,6 +10,7 @@ require __DIR__ . '/lib/auth.php';
 require __DIR__ . '/lib/orders.php';
 require __DIR__ . '/lib/mail.php';
 require __DIR__ . '/lib/public.php';
+require __DIR__ . '/lib/seo.php';
 require __DIR__ . '/lib/admin.php';
 
 const FUNCTIONS = [
@@ -17,7 +18,7 @@ const FUNCTIONS = [
     'health',
     // Customers
     'get_catalog', 'get_checkout_info', 'get_owner_contact', 'place_order', 'get_order_by_token',
-    'get_order_summaries', 'find_order', 'request_cancellation', 'resubmit_gcash_proof',
+    'get_order_summaries', 'find_order', 'request_cancellation', 'resubmit_gcash_proof', 'get_faq',
     'google_sign_in', 'customer_session', 'customer_sign_out',
     // Admins
     'admin_sign_in', 'admin_session', 'admin_sign_out', 'create_first_admin', 'admin_change_password',

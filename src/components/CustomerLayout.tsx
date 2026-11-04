@@ -192,6 +192,7 @@ function Footer() {
             <Link to="/merchants" className={item}>Explore merchants</Link>
             <Link to="/categories" className={item}>Food categories</Link>
             <Link to="/about" className={item}>About us</Link>
+            <Link to="/faq" className={item}>FAQ</Link>
             <Link to="/contact" className={item}>Contact us</Link>
           </div>
           <div>

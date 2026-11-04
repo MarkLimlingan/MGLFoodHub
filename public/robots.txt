@@ -1,3 +1,14 @@
+# Search engines and AI assistants (Googlebot, Bingbot, OAI-SearchBot, GPTBot,
+# ClaudeBot, PerplexityBot and others) may read every public page.
+# /api/ stays open: search engines need it to load the menu when they run the site.
 User-agent: *
+Allow: /
 Disallow: /admin
+Disallow: /cart
+Disallow: /checkout
 Disallow: /track/
+Disallow: /order-placed/
+Disallow: /my-orders
+Disallow: /find-order
+
+Sitemap: https://mglfoodhub.com/sitemap.xml

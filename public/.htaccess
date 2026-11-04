@@ -15,11 +15,19 @@ DirectoryIndex index.html
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteRule ^uploads/(.+)$ api/file.php?path=$1 [L,QSA]
 
-  # Same as vercel.json: links without a file extension load the app.
+  # Made from the database for search engines and AI assistants.
+  RewriteRule ^sitemap\.xml$ api/seo-files.php?file=sitemap [L]
+  RewriteRule ^llms\.txt$ api/seo-files.php?file=llms [L]
+  RewriteRule ^llms-full\.txt$ api/seo-files.php?file=llms-full [L]
+
+  # Pages (links without a file extension, and the home page) load the app through
+  # api/page.php, which adds each page's title, description, link preview and
+  # structured data to index.html (and sends index.html as is if anything fails).
+  RewriteRule ^$ api/page.php [L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
   RewriteCond %{REQUEST_URI} !\.[A-Za-z0-9]+$
-  RewriteRule ^ index.html [L]
+  RewriteRule ^ api/page.php [L]
 </IfModule>
 
 <IfModule mod_headers.c>
