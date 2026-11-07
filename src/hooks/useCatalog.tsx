@@ -69,6 +69,13 @@ function groupBy<T>(rows: T[], key: (r: T) => string): Map<string, T[]> {
 
 const bySort = <T extends { sort: number }>(a: T, b: T) => a.sort - b.sort
 
+/** Malabon Fish Port (the wet-foods store and category; the slug never changes). */
+export const FISH_PORT_SLUG = 'wet-foods'
+
+/** Categories and stores: by their sort order, with Malabon Fish Port always last. */
+export const listOrder = <T extends { slug: string; sort: number }>(a: T, b: T) =>
+  Number(a.slug === FISH_PORT_SLUG) - Number(b.slug === FISH_PORT_SLUG) || a.sort - b.sort
+
 export function CatalogProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<CatalogData>(empty)
   const [loading, setLoading] = useState(true)
@@ -78,8 +85,8 @@ export function CatalogProvider({ children }: { children: ReactNode }) {
     try {
       const c = await rpcOrThrow<CatalogResponse>('get_catalog')
       setData({
-        categories: c.hub_categories,
-        stores: c.stores,
+        categories: [...c.hub_categories].sort(listOrder),
+        stores: [...c.stores].sort(listOrder),
         sections: c.menu_sections,
         products: c.products,
         variants: num(c.product_variants, ['price', 'addon_price']),

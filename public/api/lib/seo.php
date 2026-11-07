@@ -13,6 +13,8 @@ const SITE_NAME = 'MGL Food Hub';
 // Same page as OWNER_MESSAGE_URL in src/components/common.tsx.
 const FACEBOOK_URL = 'https://www.facebook.com/profile.php?id=61595178520402';
 const SHARE_IMAGE = '/og-image.jpg';
+// Malabon Fish Port (store and category): listed last everywhere, like listOrder in src/hooks/useCatalog.tsx.
+const FISH_PORT_SLUG = 'wet-foods';
 // Clean food pictures for store link previews (same as src/lib/storeImages.ts).
 const STORE_CARD_IMAGES = [
     'judy-anns-crispy-pata', 'okoy-ni-jay-r', 'hazels-special-puto', 'sisig-ni-mutik', 'rody-days',
@@ -54,10 +56,10 @@ function seo_stores(): array
 {
     static $stores = null;
     return $stores ??= all(
-        'SELECT s.id, s.slug, s.name, s.tagline, s.address, s.contact_note, s.cover_image_url, s.menu_image_url,
+        "SELECT s.id, s.slug, s.name, s.tagline, s.address, s.contact_note, s.cover_image_url, s.menu_image_url,
                 s.open_time, s.close_time, s.is_accepting_orders, c.name AS category, c.slug AS category_slug
            FROM stores s JOIN hub_categories c ON c.id = s.hub_category_id
-          ORDER BY s.sort, s.name'
+          ORDER BY s.slug = '" . FISH_PORT_SLUG . "', s.sort, s.name"
     );
 }
 
@@ -65,8 +67,8 @@ function seo_categories(): array
 {
     static $cats = null;
     return $cats ??= all(
-        'SELECT c.name, c.slug, COUNT(s.id) AS stores FROM hub_categories c
-           JOIN stores s ON s.hub_category_id = c.id GROUP BY c.id, c.name, c.slug, c.sort ORDER BY c.sort'
+        "SELECT c.name, c.slug, COUNT(s.id) AS stores FROM hub_categories c
+           JOIN stores s ON s.hub_category_id = c.id GROUP BY c.id, c.name, c.slug, c.sort ORDER BY c.slug = '" . FISH_PORT_SLUG . "', c.sort"
     );
 }
 
@@ -148,7 +150,7 @@ function faq_items(): array
     $feeNote = setting_text('delivery_fee_note');
     $phone = owner_phone();
     $guidelines = array_values(array_filter((array) setting('ordering_guidelines', []), 'is_string'));
-    $wet = current(array_filter($stores, fn ($s) => $s['slug'] === 'wet-foods')) ?: null;
+    $wet = current(array_filter($stores, fn ($s) => $s['slug'] === FISH_PORT_SLUG)) ?: null;
     $online = 'GCash, MariBank or GoTyme';
     $cod = '₱' . number_format(COD_MAX_CENTS / 100);
     $names = array_column($stores, 'name');
@@ -199,7 +201,7 @@ function faq_items(): array
     if ($wet) {
         $faq[] = [
             'q' => 'Can I order fresh fish and seafood?',
-            'a' => 'Yes. Fresh Option Malabon Fishport (' . $wet['name'] . ') delivers fresh catch in the same cart as your food. Looking for a fish that is not on the list? Open ' . $wet['name'] . ' and tap Request a Fish to ask the owner.',
+            'a' => 'Yes. ' . $wet['name'] . ' delivers fresh catch in the same cart as your food. Looking for a fish that is not on the list? Open ' . $wet['name'] . ' and tap Request a Fish to ask the owner.',
         ];
     }
     if ($guidelines) {

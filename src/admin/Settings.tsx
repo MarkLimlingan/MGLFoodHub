@@ -165,7 +165,7 @@ export default function Settings() {
 
         <Panel title="Ordering rules">
           <div className="space-y-4">
-            <Field label="Owner contact number" htmlFor="ownerphone" hint="Shown in the Wet Foods “Request a Fish” pop-up so customers can call. Leave empty to offer Facebook messages only.">
+            <Field label="Owner contact number" htmlFor="ownerphone" hint="Shown in the Malabon Fish Port “Request a Fish” pop-up so customers can call. Leave empty to offer Facebook messages only.">
               <Input id="ownerphone" type="tel" inputMode="tel" value={form.owner_phone} onChange={(e) => set('owner_phone', e.target.value)} placeholder="0917 123 4567" className="sm:w-64" />
             </Field>
             <Field label="Cutoff time for next day orders (PH time)" htmlFor="cutoff" hint="After this time, the earliest delivery date becomes the day after tomorrow.">

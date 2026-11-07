@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { ClipboardList, Fish, Phone, ShieldCheck } from 'lucide-react'
-import { useCatalog } from '@/hooks/useCatalog'
+import { FISH_PORT_SLUG, useCatalog } from '@/hooks/useCatalog'
 import { usePageTitle } from '@/hooks/usePageTitle'
 import { telHref, useOwnerPhone } from '@/lib/contact'
 import { formatPhone } from '@/lib/utils'
@@ -16,7 +16,7 @@ export default function Contact() {
   usePageTitle('Contact Us')
   const cat = useCatalog()
   const phone = useOwnerPhone()
-  const wetFoods = cat.stores.find((s) => s.slug === 'wet-foods')
+  const wetFoods = cat.stores.find((s) => s.slug === FISH_PORT_SLUG)
 
   return (
     <div className="mx-auto max-w-4xl px-3 py-8 sm:px-4 sm:py-12">
@@ -78,7 +78,7 @@ export default function Contact() {
           <HelpRow icon={<ClipboardList />} to="/find-order" title="Check an order" text="Find your order with its order number and the phone number you used." />
           <HelpRow icon={<ClipboardList />} to="/my-orders" title="Orders on this device" text="See every order you placed from this phone or computer." />
           {wetFoods && (
-            <HelpRow icon={<Fish />} to={`/store/${wetFoods.slug}`} title="Looking for a specific fish?" text="Open Wet Foods and tap Request a Fish to ask the owner." />
+            <HelpRow icon={<Fish />} to={`/store/${wetFoods.slug}`} title="Looking for a specific fish?" text={`Open ${wetFoods.name} and tap Request a Fish to ask the owner.`} />
           )}
           <HelpRow icon={<ShieldCheck />} to="/privacy#delete-data" title="Your data" text="How we use your information, and how to ask us to delete it." />
         </ul>

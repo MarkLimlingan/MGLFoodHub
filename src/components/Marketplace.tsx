@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import {
   ArrowRight, Beef, CakeSlice, Clock, CookingPot, Fish, Flame, MapPin, Sandwich, Soup, Store as StoreIcon, UtensilsCrossed, type LucideIcon,
 } from 'lucide-react'
-import { useCatalog, type Catalog } from '@/hooks/useCatalog'
+import { listOrder, useCatalog, type Catalog } from '@/hooks/useCatalog'
 import { storeCardImage } from '@/lib/storeImages'
 import type { HubCategory, Store } from '@/lib/types'
 import { cn, formatHours, peso } from '@/lib/utils'
@@ -38,7 +38,7 @@ export function storePicture(cat: Catalog, store: Store): string | null {
 /** Stores per category, in category order, without empty categories. */
 export function categoriesWithStores(cat: Catalog): { category: HubCategory; stores: Store[] }[] {
   return [...cat.categories]
-    .sort((a, b) => a.sort - b.sort)
+    .sort(listOrder)
     .map((category) => ({ category, stores: cat.stores.filter((s) => s.hub_category_id === category.id) }))
     .filter((c) => c.stores.length > 0)
 }

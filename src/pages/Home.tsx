@@ -3,7 +3,7 @@ import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react
 import {
   ArrowRight, Banknote, CalendarClock, ChevronRight, Fish, LayoutGrid, Radio, Search, ShieldCheck, Store as StoreIcon, Truck, X,
 } from 'lucide-react'
-import { useCatalog } from '@/hooks/useCatalog'
+import { FISH_PORT_SLUG, useCatalog } from '@/hooks/useCatalog'
 import { useEarliestDelivery } from '@/hooks/useEarliestDelivery'
 import { cn, peso } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -17,7 +17,6 @@ import { categoriesWithStores, categoryIcon, StoreCard, storePicture } from '@/c
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
 
 /** Fresh seafood keeps its own photo tile section (WetFoodsSection). */
-const WET_FOODS = 'wet-foods'
 
 export default function Home() {
   const cat = useCatalog()
@@ -340,7 +339,7 @@ function OneCartBanner() {
 /** Wet Foods in its own section: one photo tile per category (Fresh Shrimp, Salmon, …), each opening that part of the store. */
 function WetFoodsSection() {
   const cat = useCatalog()
-  const category = cat.categories.find((c) => c.slug === WET_FOODS)
+  const category = cat.categories.find((c) => c.slug === FISH_PORT_SLUG)
   const wetStores = category ? cat.stores.filter((s) => s.hub_category_id === category.id) : []
   const tiles = wetStores
     .flatMap((store) =>
@@ -370,7 +369,7 @@ function WetFoodsSection() {
         </div>
         {wetStores.length === 1 && (
           <Link to={`/store/${wetStores[0].slug}`} className="flex items-center gap-1.5 text-sm font-medium text-navy hover:text-brand-ink">
-            See all {category.name.toLowerCase()} <ArrowRight className="size-4" />
+            Open {wetStores[0].name} <ArrowRight className="size-4" />
           </Link>
         )}
       </Reveal>
