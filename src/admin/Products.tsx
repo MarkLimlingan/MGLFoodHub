@@ -1,10 +1,10 @@
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { ArrowDown, ArrowUp, ImagePlus, Lock, Search, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, Check, ImagePlus, Lock, Pencil, Search, Trash2, X } from 'lucide-react'
 import { useCatalog } from '@/hooks/useCatalog'
 import { errorMessage, rpc, uploadImage } from '@/lib/api'
 import { prepareImage } from '@/lib/image'
-import type { Badge, Product, Store } from '@/lib/types'
+import type { Badge, Product, Store, Variant } from '@/lib/types'
 import { cn, formatHours, peso } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input, NativeSelect } from '@/components/ui/input'
@@ -31,7 +31,7 @@ export default function Products() {
         title="Products & stores"
         description={
           <span className="inline-flex items-center gap-1">
-            <Lock className="size-3.5" /> Prices, names and variants are fixed. You can toggle availability, badges, photos and order.
+            <Lock className="size-3.5" /> Names and variants are fixed. You can edit prices, availability, badges, photos and order.
           </span>
         }
       />
@@ -200,29 +200,7 @@ function ProductRow({ product: p, prev, next, reorderable }: { product: Product;
         {choicesText && <p className="text-xs text-navy/55">{choicesText}</p>}
         <ul className="flex flex-wrap gap-1.5">
           {variants.map((v) => (
-            <li key={v.id} className={cn('flex items-center gap-2 rounded-lg border px-2 py-1 text-xs', v.is_sold_out ? 'border-brand-red/30 bg-red-50' : 'border-sand-200 bg-cream/60')}>
-              <span className="font-medium">{v.label}</span>
-              <span className="inline-flex items-center gap-0.5 font-semibold tabular-nums text-navy/70" title="Price is fixed">
-                <Lock className="size-3" /> {peso(v.price)}
-                {v.addon_price !== null && <span className="text-navy/50"> (+{peso(v.addon_price)})</span>}
-              </span>
-              {variants.length > 1 && (
-                <Switch
-                  size="sm"
-                  checked={!v.is_sold_out}
-                  aria-label={`${v.label} available`}
-                  title={v.is_sold_out ? 'Sold out. Tap to make available.' : 'Available. Tap to mark sold out.'}
-                  onCheckedChange={async (avail) => {
-                    cat.patch('variants', v.id, { is_sold_out: !avail })
-                    const { error } = await rpc('admin_update_variant', { id: v.id, values: { is_sold_out: !avail } })
-                    if (error) {
-                      cat.patch('variants', v.id, { is_sold_out: avail })
-                      toast.error(errorMessage(error))
-                    }
-                  }}
-                />
-              )}
-            </li>
+            <VariantChip key={v.id} productName={p.name} variant={v} showToggle={variants.length > 1} />
           ))}
         </ul>
       </div>
@@ -265,6 +243,150 @@ function ProductRow({ product: p, prev, next, reorderable }: { product: Product;
           )}
         </div>
       </div>
+    </li>
+  )
+}
+
+function parsePrice(raw: string): number | null {
+  const trimmed = raw.trim()
+  if (!trimmed) return null
+  const n = Number(trimmed)
+  if (!Number.isFinite(n) || n < 0 || n > 1_000_000) return null
+  return Math.round(n * 100) / 100
+}
+
+function VariantChip({ productName, variant: v, showToggle }: { productName: string; variant: Variant; showToggle: boolean }) {
+  const cat = useCatalog()
+  const [editing, setEditing] = useState(false)
+  const [priceText, setPriceText] = useState('')
+  const [addonText, setAddonText] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const startEdit = () => {
+    setPriceText(v.price.toFixed(2))
+    setAddonText(v.addon_price !== null ? v.addon_price.toFixed(2) : '')
+    setEditing(true)
+  }
+
+  const cancel = () => {
+    if (!saving) setEditing(false)
+  }
+
+  const save = async () => {
+    const nextPrice = parsePrice(priceText)
+    if (nextPrice === null) {
+      toast.error('Please enter a valid price (0 to 1,000,000).')
+      return
+    }
+    let nextAddon = v.addon_price
+    if (v.addon_price !== null) {
+      nextAddon = parsePrice(addonText)
+      if (nextAddon === null) {
+        toast.error('Please enter a valid add-on price (0 to 1,000,000).')
+        return
+      }
+    }
+    const values: Partial<Pick<Variant, 'price' | 'addon_price'>> = {}
+    if (nextPrice !== v.price) values.price = nextPrice
+    if (v.addon_price !== null && nextAddon !== v.addon_price) values.addon_price = nextAddon
+    if (!Object.keys(values).length) {
+      setEditing(false)
+      return
+    }
+    setSaving(true)
+    const { error } = await rpc('admin_update_variant', { id: v.id, values })
+    setSaving(false)
+    if (error) {
+      toast.error(errorMessage(error))
+      return
+    }
+    cat.patch('variants', v.id, values)
+    setEditing(false)
+    toast.success('Price updated')
+  }
+
+  return (
+    <li className={cn('flex flex-wrap items-center gap-2 rounded-lg border px-2 py-1 text-xs', v.is_sold_out ? 'border-brand-red/30 bg-red-50' : 'border-sand-200 bg-cream/60')}>
+      <span className="font-medium">{v.label}</span>
+      {editing ? (
+        <form
+          className="flex flex-wrap items-center gap-1.5"
+          onSubmit={(e) => {
+            e.preventDefault()
+            void save()
+          }}
+        >
+          <label className="inline-flex items-center gap-1">
+            <span className="font-semibold text-navy/60">₱</span>
+            <Input
+              type="number"
+              inputMode="decimal"
+              step="0.01"
+              min="0"
+              max="1000000"
+              value={priceText}
+              onChange={(e) => setPriceText(e.target.value)}
+              aria-label={`${productName} ${v.label} price`}
+              className="h-8 w-24 px-2 text-sm tabular-nums"
+              autoFocus
+              disabled={saving}
+              onKeyDown={(e) => e.key === 'Escape' && cancel()}
+            />
+          </label>
+          {v.addon_price !== null && (
+            <label className="inline-flex items-center gap-1">
+              <span className="font-semibold text-navy/60">+₱</span>
+              <Input
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                min="0"
+                max="1000000"
+                value={addonText}
+                onChange={(e) => setAddonText(e.target.value)}
+                aria-label={`${productName} ${v.label} add-on price`}
+                className="h-8 w-20 px-2 text-sm tabular-nums"
+                disabled={saving}
+                onKeyDown={(e) => e.key === 'Escape' && cancel()}
+              />
+            </label>
+          )}
+          <Button type="submit" size="icon-sm" disabled={saving} aria-label="Save price" title="Save price">
+            <Check />
+          </Button>
+          <Button type="button" variant="outline" size="icon-sm" disabled={saving} onClick={cancel} aria-label="Cancel price edit" title="Cancel">
+            <X />
+          </Button>
+        </form>
+      ) : (
+        <button
+          type="button"
+          onClick={startEdit}
+          className="inline-flex items-center gap-1 rounded px-1 py-0.5 font-semibold tabular-nums text-navy/80 transition hover:bg-white hover:text-brand-600"
+          aria-label={`Edit ${productName} ${v.label} price`}
+          title="Edit price"
+        >
+          <span>{peso(v.price)}</span>
+          {v.addon_price !== null && <span className="text-navy/55">(+{peso(v.addon_price)})</span>}
+          <Pencil className="size-3 text-navy/45" />
+        </button>
+      )}
+      {showToggle && (
+        <Switch
+          size="sm"
+          checked={!v.is_sold_out}
+          aria-label={`${v.label} available`}
+          title={v.is_sold_out ? 'Sold out. Tap to make available.' : 'Available. Tap to mark sold out.'}
+          onCheckedChange={async (avail) => {
+            cat.patch('variants', v.id, { is_sold_out: !avail })
+            const { error } = await rpc('admin_update_variant', { id: v.id, values: { is_sold_out: !avail } })
+            if (error) {
+              cat.patch('variants', v.id, { is_sold_out: avail })
+              toast.error(errorMessage(error))
+            }
+          }}
+        />
+      )}
     </li>
   )
 }

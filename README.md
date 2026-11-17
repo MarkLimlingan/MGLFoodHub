@@ -54,10 +54,10 @@ Admins can also replace any store cover, menu photo or product photo from **Admi
 
 **Admin → Settings**: account name, number and QR image for GCash, MariBank and GoTyme (each works the same way: the customer pays, then sends the reference number and a screenshot); cutoff time (default 8:00 PM); max days ahead (default 30); blocked dates; email toggle; owner contact number (Wet Foods "Request a Fish").
 
-## 5. Prices and menu (fixed)
+## 5. Prices and menu
 
-- Prices **cannot** be changed from the admin: the API only lets admins change availability, badges, photos and order. `place_order` ignores any price sent by the browser and reads every price from the database.
-- New products or price changes are made in phpMyAdmin (`product_variants.price`, `option_choices.price_delta`). Orders keep the price they were placed at.
+- Admins can update variant and add-on prices from **Admin → Products & Stores** (`admin_update_variant`), while `place_order` still ignores any price sent by the customer's browser and reads every price from the database. Existing orders keep the price snapshots they were placed at.
+- New products or option-choice adjustments are made in phpMyAdmin (`products`, `product_variants`, `option_choices`).
 - `scripts/menu-data.mjs` holds the menu as transcribed from the store menus (`npm run seed:generate` writes the old Supabase seed from it).
 
 > **Needs your input:** Balsa sa Niugan → *Balsa Chicken → Buttered Half* was marked `₱[CONFIRM]` on the menu, so it is **not on the menu**.

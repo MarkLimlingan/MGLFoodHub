@@ -486,7 +486,22 @@ try {
   ok(okoyP.is_sold_out === true && okoyP.badge === 'best_seller' && okoyP.sort === 5, 'customers see the change')
   await A('admin_update_product', { id: I.okoy, values: { is_sold_out: false } })
   await expectError(A('admin_update_product', { id: I.okoy, values: { name: 'Hacked' } }), 'name cannot be changed here', 'only the allowed fields change')
-  await expectError(A('admin_update_variant', { id: I.vOkoy, values: { price: 1 } }), 'price cannot be changed here', 'prices cannot be changed')
+  await expectError(A('admin_update_variant', { id: I.vOkoy, values: { label: 'Hacked' } }), 'label cannot be changed here', 'variant labels cannot be changed')
+  await expectError(A('admin_update_variant', { id: I.vOkoy, values: { price: -1 } }), 'Invalid value for price', 'negative prices are refused')
+  await expectError(A('admin_update_variant', { id: I.vOkoy, values: { price: '30' } }), 'Invalid value for price', 'non-numeric price types are refused')
+  await expectError(A('admin_update_variant', { id: I.vOkoy, values: { price: null } }), 'Invalid value for price', 'null price is refused')
+  await expectError(A('admin_update_variant', { id: I.vPizza, values: { addon_price: -5 } }), 'Invalid value for addon_price', 'negative add-on prices are refused')
+  ok((await rpc('admin_update_variant', { id: I.vOkoy, values: { price: 35.5 } })).status === 401, 'customers cannot change prices')
+  ok((await A('admin_update_variant', { id: I.vOkoy, values: { price: 35.5 } })).data === true, 'admin can update variant price')
+  ok((await A('admin_update_variant', { id: I.vPizza, values: { addon_price: 55 } })).data === true, 'admin can update add-on price')
+  cat2 = (await rpc('get_catalog')).data
+  ok(cat2.product_variants.find((v) => v.id === I.vOkoy).price === 35.5 && cat2.product_variants.find((v) => v.id === I.vPizza).addon_price === 55, 'customers see updated prices')
+  const rPrice = await place({ ...base(), delivery_slot: '13:00-14:00', items: [{ variant_id: I.vOkoy, quantity: 2 }, { variant_id: I.vPizza, quantity: 1, extra_toppings: true }] })
+  const oPrice = (await rpc('get_order_by_token', { p_token: rPrice.data?.tracking_token })).data
+  const o1After = (await rpc('get_order_by_token', { p_token: r1.data.tracking_token })).data
+  ok(oPrice?.subtotal === 35.5 * 2 + 299 + 55 && o1After?.subtotal === 57.6, 'new orders use updated prices while old orders keep their snapshots')
+  await A('admin_update_variant', { id: I.vOkoy, values: { price: 28.8 } })
+  await A('admin_update_variant', { id: I.vPizza, values: { addon_price: 45 } })
   await expectError(A('admin_update_product', { id: I.okoy, values: { image_url: 'javascript:alert(1)' } }), 'Invalid value for image_url', 'photo links are checked')
   await expectError(A('admin_update_product', { id: I.okoy, values: { badge: 'hot' } }), 'Invalid value for badge', 'badges are checked')
   await A('admin_update_variant', { id: I.vOkoy, values: { is_sold_out: true } })

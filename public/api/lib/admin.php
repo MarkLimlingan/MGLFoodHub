@@ -819,11 +819,16 @@ function admin_settle_balance(array $args): bool
 }
 
 // ---------------------------------------------------------------------
-// Menu: availability, badges, photos and order (prices never change)
+// Menu: availability, prices, badges, photos and order
 // ---------------------------------------------------------------------
 function image_url_ok(mixed $v): bool
 {
     return $v === null || (is_string($v) && strlen($v) <= 1000 && (str_starts_with($v, '/uploads/') || str_starts_with($v, '/menus/') || str_starts_with($v, '/stores/') || str_starts_with($v, '/products/') || str_starts_with($v, 'https://')));
+}
+
+function price_ok(mixed $v): bool
+{
+    return (is_int($v) || is_float($v)) && is_finite((float) $v) && $v >= 0 && $v <= 1000000;
 }
 
 /** Only the listed columns can change; each value is checked. */
@@ -875,7 +880,29 @@ function admin_update_product(array $args): bool
 function admin_update_variant(array $args): bool
 {
     require_admin();
-    return update_row('product_variants', $args, ['is_sold_out' => 'is_bool']);
+    $values = is_array($args['values'] ?? null) ? $args['values'] : [];
+    $clean = [];
+    foreach ($values as $col => $v) {
+        if ($col === 'price') {
+            if (!price_ok($v)) {
+                throw new ApiError('Invalid value for price.');
+            }
+            $clean[$col] = dec(cents($v));
+        } elseif ($col === 'addon_price') {
+            if ($v !== null && !price_ok($v)) {
+                throw new ApiError('Invalid value for addon_price.');
+            }
+            $clean[$col] = $v === null ? null : dec(cents($v));
+        } else {
+            $clean[$col] = $v;
+        }
+    }
+    $args['values'] = $clean;
+    return update_row('product_variants', $args, [
+        'is_sold_out' => 'is_bool',
+        'price' => 'is_string',
+        'addon_price' => fn ($v) => $v === null || is_string($v),
+    ]);
 }
 
 // ---------------------------------------------------------------------
